@@ -7,9 +7,12 @@ Usage:
     open http://localhost:5757
 """
 
+import io
+import json
 import os
 import anthropic
-from flask import Flask, Response, request, stream_with_context
+from docx import Document
+from flask import Flask, Response, request, send_file, stream_with_context
 from prompt import SYSTEM_PROMPT
 
 app = Flask(__name__)
@@ -81,6 +84,17 @@ HTML = r"""<!DOCTYPE html>
     border-left: 1px solid var(--rule);
     padding-left: 16px;
     line-height: 1.4;
+  }
+
+  .model-tag {
+    margin-left: auto;
+    font-size: 0.62rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--rule);
+    border: 1px solid var(--rule);
+    padding: 3px 10px;
+    border-radius: 2px;
   }
 
   main {
@@ -169,11 +183,43 @@ HTML = r"""<!DOCTYPE html>
 
   #output {
     background: transparent;
-    cursor: default;
   }
 
   #output.streaming {
     color: var(--ink);
+  }
+
+  /* diff overlay */
+  #diff-view {
+    display: none;
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    line-height: 1.75;
+    color: var(--ink);
+    background: var(--paper);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  #diff-view.active { display: block; }
+
+  .diff-add {
+    background: rgba(39,174,96,0.18);
+    color: #1a6636;
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+
+  .diff-del {
+    background: rgba(192,57,43,0.12);
+    color: var(--red);
+    text-decoration: line-through;
+    border-radius: 2px;
+    padding: 0 1px;
   }
 
   .toolbar {
@@ -206,7 +252,26 @@ HTML = r"""<!DOCTYPE html>
   #run-btn:hover { background: var(--red-hover); }
   #run-btn:disabled { background: var(--rule); cursor: not-allowed; }
 
-  #copy-btn {
+  /* detection score badge */
+  .score-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    border: 1px solid currentColor;
+  }
+
+  .score-badge.ai    { color: var(--red); background: rgba(192,57,43,0.08); }
+  .score-badge.mixed { color: #b07d1a;    background: rgba(176,125,26,0.08); }
+  .score-badge.human { color: #27ae60;    background: rgba(39,174,96,0.08); }
+  .score-badge.scanning { color: var(--muted); background: transparent; border-style: dashed; }
+
+  #copy-btn, #export-btn {
     font-family: var(--mono);
     font-size: 0.72rem;
     letter-spacing: 0.1em;
@@ -219,8 +284,8 @@ HTML = r"""<!DOCTYPE html>
     transition: all 0.15s;
   }
 
-  #copy-btn:hover { border-color: var(--ink); color: var(--ink); }
-  #copy-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #copy-btn:hover, #export-btn:hover { border-color: var(--ink); color: var(--ink); }
+  #copy-btn:disabled, #export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   #clear-btn {
     font-family: var(--mono);
@@ -236,6 +301,39 @@ HTML = r"""<!DOCTYPE html>
   }
 
   #clear-btn:hover { border-color: var(--rule); }
+
+  /* context menu */
+  #ctx-menu {
+    position: fixed;
+    background: var(--paper-dark);
+    border: 1px solid var(--ink);
+    padding: 4px 0;
+    z-index: 200;
+    display: none;
+    min-width: 180px;
+  }
+
+  #ctx-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: transparent;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    color: var(--ink);
+    transition: background 0.1s;
+  }
+
+  #ctx-menu button:hover { background: var(--rule); }
+
+  .delta-up   { color: #27ae60; }
+  .delta-down { color: var(--red); }
+  .delta-zero { color: var(--muted); }
 
   #status {
     margin-left: auto;
@@ -281,17 +379,25 @@ HTML = r"""<!DOCTYPE html>
 <header>
   <div class="logo">Humanizer</div>
   <div class="tagline">strip AI fingerprints<br>from your prose</div>
+  <div class="model-tag">claude-opus-4-6</div>
 </header>
 
 <main>
   <div class="col-header">
     Input
-    <span class="word-count" id="in-count">0 words</span>
+    <span style="display:flex;align-items:center;gap:10px;">
+      <span id="in-score"></span>
+      <span class="word-count" id="in-count">0 words</span>
+    </span>
   </div>
   <div class="col-header">
     Output
-    <span class="word-count" id="out-count">-</span>
+    <span style="display:flex;align-items:center;gap:10px;">
+      <span id="out-score"></span>
+      <span class="word-count" id="out-count">-</span>
+    </span>
   </div>
+
 
   <div class="pane" id="input-pane">
     <textarea id="input" placeholder="Paste your text here...&#10;&#10;The more LLM-ish, the better."></textarea>
@@ -299,15 +405,23 @@ HTML = r"""<!DOCTYPE html>
   </div>
 
   <div class="pane">
-    <textarea id="output" readonly placeholder="Humanized output will appear here..."></textarea>
+    <textarea id="output" placeholder="Humanized output will appear here..."></textarea>
+    <div id="diff-view"></div>
   </div>
 </main>
 
 <div class="toolbar">
   <button id="run-btn">HUMANIZE</button>
   <button id="copy-btn" disabled>COPY</button>
+  <button id="export-btn" disabled>EXPORT .DOCX</button>
+  <button id="diff-btn" disabled>DIFF</button>
+  <button id="scan-btn" disabled>SCAN</button>
   <button id="clear-btn">CLEAR</button>
   <span id="status"></span>
+</div>
+
+<div id="ctx-menu">
+  <button id="ctx-rehumanize">↺ Re-humanize selection</button>
 </div>
 
 <script>
@@ -315,41 +429,178 @@ const inputEl  = document.getElementById('input');
 const outputEl = document.getElementById('output');
 const runBtn   = document.getElementById('run-btn');
 const copyBtn  = document.getElementById('copy-btn');
+const exportBtn= document.getElementById('export-btn');
+const diffBtn  = document.getElementById('diff-btn');
+const scanBtn  = document.getElementById('scan-btn');
 const clearBtn = document.getElementById('clear-btn');
+const inScore  = document.getElementById('in-score');
+const outScore = document.getElementById('out-score');
 const status   = document.getElementById('status');
 const inCount  = document.getElementById('in-count');
 const outCount = document.getElementById('out-count');
+const diffView = document.getElementById('diff-view');
+const ctxMenu  = document.getElementById('ctx-menu');
+const ctxRehumanize = document.getElementById('ctx-rehumanize');
+let diffActive = false;
+let sourceFilename = null;
 
 function countWords(str) {
   return str.trim() ? str.trim().split(/\s+/).length : 0;
 }
 
+function updateOutCount() {
+  const outWords = countWords(outputEl.value);
+  const inWords  = countWords(inputEl.value);
+  if (!outputEl.value.trim()) { outCount.innerHTML = '-'; return; }
+  const delta = outWords - inWords;
+  let deltaHtml = '';
+  if (delta > 0)       deltaHtml = ` <span class="delta-up">(+${delta})</span>`;
+  else if (delta < 0)  deltaHtml = ` <span class="delta-down">(${delta})</span>`;
+  else                 deltaHtml = ` <span class="delta-zero">(=)</span>`;
+  outCount.innerHTML = outWords + ' words' + deltaHtml;
+}
+
 inputEl.addEventListener('input', () => {
   inCount.textContent = countWords(inputEl.value) + ' words';
+  updateOutCount();
 });
+
+outputEl.addEventListener('input', updateOutCount);
 
 clearBtn.addEventListener('click', () => {
   inputEl.value = '';
   outputEl.value = '';
   inCount.textContent = '0 words';
-  outCount.textContent = '-';
+  outCount.innerHTML = '-';
   copyBtn.disabled = true;
+  exportBtn.disabled = true;
+  diffBtn.disabled = true;
+  scanBtn.disabled = true;
+  inScore.innerHTML = '';
+  outScore.innerHTML = '';
+  exitDiff();
   status.textContent = '';
+});
+
+// --- GPTZero detection ---
+function renderBadge(el, data) {
+  const aiPct    = data.completely_generated_prob;
+  const cls      = data.predicted_class; // 'ai' | 'human' | 'mixed'
+  let pct, label;
+  if (cls === 'ai') {
+    pct   = Math.round(aiPct * 100);
+    label = `AI ${pct}%`;
+  } else if (cls === 'human') {
+    pct   = Math.round((1 - aiPct) * 100);
+    label = `Human ${pct}%`;
+  } else {
+    pct   = Math.round((1 - aiPct) * 100);
+    label = `Mixed ${pct}% human`;
+  }
+  el.innerHTML = `<span class="score-badge ${cls}">${label}</span>`;
+}
+
+async function runScan(text, badgeEl) {
+  badgeEl.innerHTML = '<span class="score-badge scanning">scanning…</span>';
+  try {
+    const res = await fetch('/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) { badgeEl.innerHTML = ''; return; }
+    const data = await res.json();
+    renderBadge(badgeEl, data);
+  } catch(e) {
+    badgeEl.innerHTML = '';
+  }
+}
+
+scanBtn.addEventListener('click', async () => {
+  scanBtn.disabled = true;
+  scanBtn.textContent = 'SCANNING…';
+  await Promise.all([
+    inputEl.value.trim()  ? runScan(inputEl.value.trim(),  inScore)  : Promise.resolve(),
+    outputEl.value.trim() ? runScan(outputEl.value.trim(), outScore) : Promise.resolve(),
+  ]);
+  scanBtn.disabled = false;
+  scanBtn.textContent = 'SCAN';
+});
+
+// --- Diff ---
+function tokenize(text) {
+  // Words (including attached punctuation) and whitespace runs as separate tokens
+  return text.match(/\S+|\s+/g) || [];
+}
+
+function lcs(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({length: m + 1}, () => new Uint16Array(n + 1));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1]);
+  const result = [];
+  let i = m, j = n;
+  while (i > 0 && j > 0) {
+    if (a[i-1] === b[j-1])      { result.push({type:'eq', val:a[i-1]}); i--; j--; }
+    else if (dp[i-1][j] >= dp[i][j-1]) { result.push({type:'del', val:a[i-1]}); i--; }
+    else                                { result.push({type:'add', val:b[j-1]}); j--; }
+  }
+  while (i > 0) { result.push({type:'del', val:a[i-1]}); i--; }
+  while (j > 0) { result.push({type:'add', val:b[j-1]}); j--; }
+  return result.reverse();
+}
+
+function buildDiffHtml(original, humanized) {
+  const tokA = tokenize(original);
+  const tokB = tokenize(humanized);
+  const ops  = lcs(tokA, tokB);
+  return ops.map(op => {
+    const esc = op.val.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    if (op.type === 'eq')  return esc;
+    if (op.type === 'add') return `<span class="diff-add">${esc}</span>`;
+    if (op.type === 'del') return `<span class="diff-del">${esc}</span>`;
+  }).join('');
+}
+
+function enterDiff() {
+  diffView.innerHTML = buildDiffHtml(inputEl.value, outputEl.value);
+  diffView.classList.add('active');
+  outputEl.style.visibility = 'hidden';
+  diffBtn.textContent = 'EDIT';
+  diffActive = true;
+}
+
+function exitDiff() {
+  diffView.classList.remove('active');
+  outputEl.style.visibility = '';
+  diffBtn.textContent = 'DIFF';
+  diffActive = false;
+}
+
+diffBtn.addEventListener('click', () => {
+  if (diffActive) exitDiff();
+  else enterDiff();
+});
+
+// Re-render diff live when output is edited (only if diff is active)
+outputEl.addEventListener('input', () => {
+  if (diffActive) diffView.innerHTML = buildDiffHtml(inputEl.value, outputEl.value);
 });
 
 function stripFormatting(text) {
   return text
-    .replace(/^#{1,6}\s+/gm, '')          // ## headings
-    .replace(/\*\*(.+?)\*\*/g, '$1')       // **bold**
-    .replace(/\*(.+?)\*/g, '$1')           // *italic*
-    .replace(/`{3}[\s\S]*?`{3}/g, '')      // ```code blocks```
-    .replace(/`(.+?)`/g, '$1')             // `inline code`
-    .replace(/^[-*+]\s+/gm, '')            // - bullet points
-    .replace(/^\d+\.\s+/gm, '')            // 1. numbered lists
-    .replace(/^>\s+/gm, '')                // > blockquotes
-    .replace(/^[-*_]{3,}\s*$/gm, '')       // --- hr lines
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1')    // [link](url) -> text
-    .replace(/\n{3,}/g, '\n\n')            // collapse 3+ newlines
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{3}[\s\S]*?`{3}/g, '')
+    .replace(/`(.+?)`/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/^\d+\.\s+/gm, '')
+    .replace(/^>\s+/gm, '')
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
@@ -359,47 +610,81 @@ copyBtn.addEventListener('click', async () => {
   setTimeout(() => copyBtn.textContent = 'COPY', 1500);
 });
 
+// --- Export .docx ---
+exportBtn.addEventListener('click', async () => {
+  const text = outputEl.value.trim();
+  if (!text) return;
+  exportBtn.disabled = true;
+  exportBtn.textContent = 'EXPORTING...';
+  try {
+    const res = await fetch('/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: stripFormatting(text) })
+    });
+    if (!res.ok) { status.textContent = 'export failed'; return; }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = sourceFilename ? `${sourceFilename}-humanized.docx` : 'humanized.docx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch(e) {
+    status.textContent = 'export error: ' + e.message;
+  } finally {
+    exportBtn.disabled = false;
+    exportBtn.textContent = 'EXPORT .DOCX';
+  }
+});
+
+// --- Stream helper ---
+async function streamHumanize(text, onChunk, onDone, onError) {
+  const res = await fetch('/humanize', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    onError(err.error || res.statusText);
+    return;
+  }
+  const reader  = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    full += chunk;
+    onChunk(full);
+  }
+  onDone(full);
+}
+
+// --- Main run ---
 runBtn.addEventListener('click', async () => {
   const text = inputEl.value.trim();
   if (!text) return;
-
   runBtn.disabled = true;
   copyBtn.disabled = true;
+  exportBtn.disabled = true;
+  diffBtn.disabled = true;
+  scanBtn.disabled = true;
+  outScore.innerHTML = '';
+  exitDiff();
   outputEl.value = '';
-  outCount.textContent = '-';
+  outCount.innerHTML = '-';
   status.textContent = 'processing...';
-
   try {
-    const res = await fetch('/humanize', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-
-    if (!res.ok) {
-      const err = await res.json();
-      status.textContent = 'error: ' + (err.error || res.statusText);
-      return;
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let full = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      full += chunk;
-      outputEl.value = full;
-      outCount.textContent = countWords(full) + ' words';
-      outputEl.scrollTop = outputEl.scrollHeight;
-    }
-
-    status.textContent = 'done';
-    copyBtn.disabled = false;
-
-  } catch (e) {
+    await streamHumanize(
+      text,
+      full => { outputEl.value = full; updateOutCount(); outputEl.scrollTop = outputEl.scrollHeight; },
+      ()   => { status.textContent = 'done'; copyBtn.disabled = false; exportBtn.disabled = false; diffBtn.disabled = false; scanBtn.disabled = false; },
+      err  => { status.textContent = 'error: ' + err; }
+    );
+  } catch(e) {
     status.textContent = 'error: ' + e.message;
   } finally {
     runBtn.disabled = false;
@@ -408,47 +693,73 @@ runBtn.addEventListener('click', async () => {
 
 // cmd+enter / ctrl+enter to run
 inputEl.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-    runBtn.click();
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) runBtn.click();
+});
+
+// --- Context menu: re-humanize selection ---
+outputEl.addEventListener('contextmenu', e => {
+  const sel = outputEl.value.substring(outputEl.selectionStart, outputEl.selectionEnd).trim();
+  if (!sel) return;
+  e.preventDefault();
+  ctxMenu.style.display = 'block';
+  ctxMenu.style.left = e.clientX + 'px';
+  ctxMenu.style.top  = e.clientY + 'px';
+});
+
+document.addEventListener('click', () => { ctxMenu.style.display = 'none'; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') ctxMenu.style.display = 'none'; });
+
+ctxRehumanize.addEventListener('click', async () => {
+  const start = outputEl.selectionStart;
+  const end   = outputEl.selectionEnd;
+  const sel   = outputEl.value.substring(start, end).trim();
+  if (!sel) return;
+
+  ctxMenu.style.display = 'none';
+  status.textContent = 're-humanizing selection...';
+  runBtn.disabled = true;
+
+  const before = outputEl.value.substring(0, start);
+  const after  = outputEl.value.substring(end);
+
+  try {
+    await streamHumanize(
+      sel,
+      chunk => {
+        outputEl.value = before + chunk + after;
+        updateOutCount();
+      },
+      chunk => {
+        outputEl.value = before + chunk + after;
+        updateOutCount();
+        status.textContent = 'done';
+      },
+      err => { status.textContent = 'error: ' + err; }
+    );
+  } catch(e) {
+    status.textContent = 'error: ' + e.message;
+  } finally {
+    runBtn.disabled = false;
   }
 });
 
-// drag & drop txt files onto input pane
+// --- Drag & drop ---
 const inputPane = document.getElementById('input-pane');
-
-inputPane.addEventListener('dragenter', e => {
-  e.preventDefault();
-  inputPane.classList.add('drag-over');
-});
-
-inputPane.addEventListener('dragover', e => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
-});
-
-inputPane.addEventListener('dragleave', e => {
-  if (!inputPane.contains(e.relatedTarget)) {
-    inputPane.classList.remove('drag-over');
-  }
-});
-
+inputPane.addEventListener('dragenter', e => { e.preventDefault(); inputPane.classList.add('drag-over'); });
+inputPane.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+inputPane.addEventListener('dragleave', e => { if (!inputPane.contains(e.relatedTarget)) inputPane.classList.remove('drag-over'); });
 inputPane.addEventListener('drop', e => {
   e.preventDefault();
   inputPane.classList.remove('drag-over');
-
   const file = e.dataTransfer.files[0];
   if (!file) return;
-
-  if (!file.name.endsWith('.txt') && file.type !== 'text/plain') {
-    status.textContent = 'only .txt files supported';
-    return;
-  }
-
+  if (!file.name.endsWith('.txt') && file.type !== 'text/plain') { status.textContent = 'only .txt files supported'; return; }
   const reader = new FileReader();
   reader.onload = ev => {
     inputEl.value = ev.target.result;
     inCount.textContent = countWords(inputEl.value) + ' words';
     status.textContent = 'loaded: ' + file.name;
+    sourceFilename = file.name.replace(/\.[^.]+$/, ''); // strip extension
   };
   reader.readAsText(file);
 });
@@ -460,6 +771,50 @@ inputPane.addEventListener('drop', e => {
 @app.route("/")
 def index():
     return HTML
+
+
+GPTZERO_KEY = "3141057c16724e4494fa346cc983d7c8"
+
+@app.route("/detect", methods=["POST"])
+def detect():
+    import requests as req_lib
+    data = request.get_json()
+    text = (data or {}).get("text", "").strip()
+    if not text:
+        return {"error": "no text"}, 400
+    resp = req_lib.post(
+        "https://api.gptzero.me/v2/predict/text",
+        json={"document": text},
+        headers={"x-api-key": GPTZERO_KEY, "Accept": "application/json"},
+        timeout=15,
+    )
+    resp.raise_for_status()
+    doc = resp.json()["documents"][0]
+    return {
+        "predicted_class":           doc["predicted_class"],
+        "completely_generated_prob": doc["completely_generated_prob"],
+        "confidence_score":          doc["confidence_score"],
+    }
+
+
+@app.route("/export", methods=["POST"])
+def export_docx():
+    data = request.get_json()
+    text = (data or {}).get("text", "").strip()
+    if not text:
+        return {"error": "no text provided"}, 400
+
+    doc = Document()
+    for para in text.split("\n\n"):
+        para = para.strip()
+        if para:
+            doc.add_paragraph(para)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+    return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                     as_attachment=True, download_name="humanized.docx")
 
 
 @app.route("/humanize", methods=["POST"])
