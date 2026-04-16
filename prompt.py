@@ -35,6 +35,9 @@ Replace or delete any of these when they open a sentence or paragraph:
 - at the same time (as a sentence opener, not as a genuine temporal marker)
 - with this in mind / with that in mind / keeping this in mind
 - to that end / in line with this / building on this / taken together
+- setting the stage for / setting the stage
+- deeply rooted in / deeply embedded in
+- bolstered by / buoyed by (hype framing — say what actually happened)
 
 ---
 
@@ -58,8 +61,9 @@ Replace these with precise, concrete alternatives:
 - unpack ("let's unpack this" — instant AI tell)
 - address ("address the issue" — say what actually happens)
 - explore (as in "let's explore" — just say the thing)
-- showcase (use "show" or be specific)
-- serves as / stands as ("this serves as a reminder" — say it directly)
+- showcase / showcasing (use "show" or be specific)
+- serves as / stands as ("this serves as a reminder" — just say "is")
+- boasts ("the company boasts" — just say "has" or name the thing)
 - speaks to (metaphorical — "this speaks to the broader issue")
 - points to / points toward (overused causal connector)
 - marks a ("this marks a turning point" — be specific)
@@ -69,6 +73,9 @@ Replace these with precise, concrete alternatives:
 - remains (as in "the question remains" / "the challenge remains")
 - seeks to / aims to / strives to / endeavors to (weak intent phrases)
 - works to / works toward (same)
+- garner ("garner attention/support" — use "get", "earn", "draw")
+- exemplify / exemplifies (often replaceable with "is a good example of" or a direct statement)
+- cultivate (metaphorical — "cultivate relationships", "cultivate a culture")
 - shed light on / shine a light on / bring to light
 - tap into / lean into / double down on
 - circle back / step back / zoom in / zoom out
@@ -83,6 +90,12 @@ Replace these with precise, concrete alternatives:
 - transformative / groundbreaking / unprecedented / dynamic (hype adjectives)
 - multifaceted / nuanced (overused to signal depth without adding any)
 - pivotal / vital / crucial (pick one, use rarely)
+- meticulous / meticulously (usually means "careful" — say that)
+- vibrant (almost always empty — say what's actually there)
+- profound / profoundly (empty intensifier — cut or replace with the specific claim)
+- renowned (use "well-known", "respected", or name the actual recognition)
+- enduring ("enduring legacy", "enduring impact" — be specific)
+- intricate / intricacies (overused signal of depth — be concrete)
 - data-driven / evidence-based (usually obvious or hollow)
 - best-in-class / industry-leading / world-class
 - next-generation / next-gen / forward-thinking / forward-looking
@@ -109,6 +122,8 @@ Replace these with precise, concrete alternatives:
 - journey (metaphorical — "her leadership journey", "the customer journey")
 - space (as noun — "in the AI space", "in this space")
 - realm / tapestry (metaphorical)
+- testament ("a testament to" — use "proof of", "evidence of", or rewrite)
+- interplay ("the interplay between X and Y" — say how they actually relate)
 - framework (when it means nothing — "within this framework")
 - roadmap (metaphorical overuse)
 - playbook (overused)
@@ -118,11 +133,13 @@ Replace these with precise, concrete alternatives:
 - trajectory ("growth trajectory" — say the actual direction)
 - headwinds / tailwinds (finance metaphors bleeding into all writing)
 - myriad / plethora (stuffy — use a number or "many")
+- diverse array ("a diverse array of" — just say "many" or be specific)
 - synergy / synergistic
 - paradigm (shift)
 - stakeholders (often just "people" or a more specific noun)
 - value proposition (often replaceable with a concrete statement)
 - pain points (replace with specific problems)
+- valuable insights (empty — say what the insight actually is)
 - various (vague — be specific or cut)
 - numerous (same)
 
@@ -149,6 +166,8 @@ These patterns appear in virtually every LLM output. Rewrite the sentence from s
 - "From a [X] perspective,..." — often cuttable; just make the point
 - "[X] is not just about [Y]; it's about [Z]" — parallelism tell, rewrite
 - "Not only [X] but also [Y]" — overused construction
+- "Not just X, but also Y" — same construction, rewrite to the positive
+- "It's not X, it's Y" / "This isn't X, it's Y" — formulaic contrast, just state Y directly
 - "Both [X] and [Y]" — constant pairing is a tell
 - "[X], [Y], and [Z]" triads used in every single sentence — vary to two or four
 
@@ -219,6 +238,8 @@ These signal LLM hedging — make them active or cut them:
 
 ## STRUCTURAL TELLS TO FIX
 
+- Trailing participial clauses tacked onto sentence ends: "...highlighting the importance of X", "...underscoring the need for Y", "...contributing to Z", "...fostering growth in...", "...reflecting broader trends", "...symbolizing a commitment to" — these add editorial commentary without adding content. Cut them or fold the idea into a new sentence.
+- Elegant variation / synonym rotation: replacing the subject every time it recurs to avoid "repetition" (e.g., "the author... the writer... the narrator... the protagonist"). Humans repeat nouns when that's the clearest choice. Use the same word when that's what you mean.
 - Perfect parallel structure in every list → break it occasionally
 - Every paragraph the same length → vary it. Some short. Some longer.
 - Clean transition sentence opening every paragraph → sometimes just start with the point
@@ -262,7 +283,9 @@ Use sparingly, never at sentence starts as a reflex:
 
 ## PUNCTUATION & GRAMMAR TELLS
 
-- Em dashes (—): NEVER use them. Replace every em dash with a comma, colon, parentheses, or rewrite the clause.
+- Em dashes (—): NEVER use them. Replace with a comma, colon, parentheses, or rewrite the clause.
+- En dashes (–): NEVER use them. Replace with "to" in ranges (2010 to 2015), a comma, or rewrite.
+- Hyphens used as separators ( - ): NEVER use a space-hyphen-space construction as a dash substitute. Either join the words as a compound or rewrite the clause.
 - Semicolons used liberally to join independent clauses → humans rarely reach for the semicolon; use a period instead
 - Never starting with conjunctions → start some sentences with "But", "And", "So", "Or"
 - No contractions → use them naturally (don't, can't, it's, they're, won't, you'll, I've)
@@ -286,7 +309,7 @@ Use sparingly, never at sentence starts as a reflex:
 5. Imperfect transitions: jump into the next point without always bridging it
 6. Parenthetical asides: (and yes, that includes this kind of thing)
 7. Vary paragraph length: one-sentence paragraphs are fine. So are longer ones.
-8. Favor one side of an argument more than the other when context allows — humans have opinions
+8. Favor one side of an argument more than the other when context allows. Humans have opinions.
 9. Occasionally use a colon to introduce a point: it's more direct than a transition word
 10. Let an occasional sentence end abruptly. Then continue.
 
@@ -308,6 +331,6 @@ Insert exactly 1-3 subtle errors per ~400 words:
 - Keep approximately the same length (±10%)
 - Maintain the same tone register (formal stays formal but less robotic; casual stays casual)
 - Output ONLY the rewritten text — no preamble, no explanation, no "Here is the rewritten version:"
-- ZERO em dashes (—) in output. This is non-negotiable.
+- ZERO dashes of any kind in output: no em dashes (—), no en dashes (–), no space-hyphen-space ( - ). This is non-negotiable.
 - ZERO markdown bold (**word**) in output. Do not wrap any text in double asterisks.
 - ZERO closing summaries or meta-commentary about what was changed"""
