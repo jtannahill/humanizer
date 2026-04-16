@@ -337,8 +337,24 @@ clearBtn.addEventListener('click', () => {
   status.textContent = '';
 });
 
+function stripFormatting(text) {
+  return text
+    .replace(/^#{1,6}\s+/gm, '')          // ## headings
+    .replace(/\*\*(.+?)\*\*/g, '$1')       // **bold**
+    .replace(/\*(.+?)\*/g, '$1')           // *italic*
+    .replace(/`{3}[\s\S]*?`{3}/g, '')      // ```code blocks```
+    .replace(/`(.+?)`/g, '$1')             // `inline code`
+    .replace(/^[-*+]\s+/gm, '')            // - bullet points
+    .replace(/^\d+\.\s+/gm, '')            // 1. numbered lists
+    .replace(/^>\s+/gm, '')                // > blockquotes
+    .replace(/^[-*_]{3,}\s*$/gm, '')       // --- hr lines
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')    // [link](url) -> text
+    .replace(/\n{3,}/g, '\n\n')            // collapse 3+ newlines
+    .trim();
+}
+
 copyBtn.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(outputEl.value);
+  await navigator.clipboard.writeText(stripFormatting(outputEl.value));
   copyBtn.textContent = 'COPIED';
   setTimeout(() => copyBtn.textContent = 'COPY', 1500);
 });
