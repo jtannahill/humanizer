@@ -689,8 +689,8 @@ async function rehumanizeLoop(scanData) {
         sentences: flagged,
         full_text: outputEl.value,
         model: modelSelect.value,
-        overall_burstiness: data.overall_burstiness || 0,
-        subclass: data.subclass || {}
+        overall_burstiness: scanData.overall_burstiness || 0,
+        subclass: scanData.subclass || {}
       })
     });
     if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
