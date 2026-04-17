@@ -685,7 +685,13 @@ async function rehumanizeLoop(scanData) {
     const res = await fetch('/rehumanize-sentences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sentences: flagged, full_text: outputEl.value, model: modelSelect.value })
+      body: JSON.stringify({
+        sentences: flagged,
+        full_text: outputEl.value,
+        model: modelSelect.value,
+        overall_burstiness: data.overall_burstiness || 0,
+        subclass: data.subclass || {}
+      })
     });
     if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
     const data = await res.json();
@@ -1032,10 +1038,13 @@ def detect():
     )
     resp.raise_for_status()
     doc = resp.json()["documents"][0]
+    subclass_probs = (doc.get("subclass") or {}).get("ai", {}).get("class_probabilities", {})
     return {
         "predicted_class":           doc["predicted_class"],
         "completely_generated_prob": doc["completely_generated_prob"],
         "confidence_score":          doc["confidence_score"],
+        "overall_burstiness":        doc.get("overall_burstiness", 0),
+        "subclass":                  subclass_probs,
         "sentences":                 doc.get("sentences", []),
     }
 
@@ -1064,9 +1073,12 @@ def export_docx():
 def rehumanize_sentences():
     import re as re_mod
     data = request.get_json()
-    sentences = (data or {}).get("sentences", [])
-    full_text = (data or {}).get("full_text", "").strip()
-    model = (data or {}).get("model", "claude-opus-4-6")
+    sentences      = (data or {}).get("sentences", [])
+    full_text      = (data or {}).get("full_text", "").strip()
+    model          = (data or {}).get("model", "claude-opus-4-7")
+    burstiness     = (data or {}).get("overall_burstiness", 0)
+    subclass       = (data or {}).get("subclass", {})
+    is_paraphrased = subclass.get("ai_paraphrased", 0) > subclass.get("pure_ai", 1)
 
     if not sentences or not full_text:
         return {"error": "missing sentences or full_text"}, 400
@@ -1081,15 +1093,38 @@ def rehumanize_sentences():
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
-    prompt = f"""These sentences were flagged as AI-written by a detector. Rewrite each one to sound more human while preserving the exact meaning.
+    # Build diagnostic context from GPTZero signals
+    diag_lines = []
+    if burstiness == 0:
+        diag_lines.append("- BURSTINESS = 0: sentence lengths are completely uniform. You MUST create dramatic length variation — some sentences under 8 words, some over 35.")
+    elif burstiness < 10:
+        diag_lines.append(f"- BURSTINESS = {burstiness} (very low): sentence lengths are too uniform. Vary them more aggressively.")
 
-Rules:
+    if is_paraphrased:
+        diag_lines.append("- DETECTED AS AI-PARAPHRASED: a prior rewrite attempt was detected. The word choices are still too predictable. Use less common but natural alternatives — unexpected phrasing, idiomatic expressions, informal register drops.")
+    else:
+        diag_lines.append("- DETECTED AS PURE AI: sentence structure is formulaic. Break the clause patterns, add afterthought qualifications, let sentences end weakly or trail into a subordinate clause.")
+
+    # Annotate each sentence with its perplexity
+    sent_objects = (data or {}).get("sentence_objects", [])
+    numbered_parts = []
+    for i, s in enumerate(sentences):
+        numbered_parts.append(f"{i+1}. {s}")
+
+    numbered = "\n".join(numbered_parts)
+    diag_block = "\n".join(diag_lines) if diag_lines else ""
+
+    prompt = f"""These sentences were flagged as AI-written by GPTZero. Rewrite each one to evade detection while preserving the exact meaning, all numbers, all names, and all logic.
+
+DETECTOR DIAGNOSTICS (use these to target your rewrites):
+{diag_block}
+
+Rewriting rules:
 - Keep approximately the same length
 - No em dashes, no en dashes, no markdown bold
 - Stay in the same person, tense, and register as the original
 - Use contractions where natural
-- Vary the sentence structure from the original
+- Never change any number, percentage, name, date, or logical claim
 - Return ONLY the rewritten sentences, one per line, in the exact same order
 - Do not add numbering, labels, or any preamble
 
