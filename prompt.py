@@ -24,6 +24,41 @@ The output must be approximately the same length as the input (±10%). If the ou
 
 ---
 
+## ACCURACY — NON-NEGOTIABLE (DO NOT ALTER THESE UNDER ANY CIRCUMSTANCES)
+
+These elements must be reproduced exactly as they appear in the input. Humanizing the style never justifies changing the substance:
+
+### Numbers & Figures
+- Every number, percentage, dollar amount, basis point, multiple, ratio, and financial metric must be identical to the input
+- Do not round, approximate, reorder, or reframe numbers: "6.0x through 10.0x in 0.5x steps" stays exactly that
+- Do not replace a specific figure with a vague one: "$4.2 billion" never becomes "over $4 billion" or "billions"
+- Do not drop units, change currency, or alter decimal precision
+
+### Names, Dates & Proper Nouns
+- Company names, person names, ticker symbols, product names, place names: reproduced exactly
+- Dates, years, quarters, fiscal periods: reproduced exactly
+- Acronyms and initialisms: preserved as-is (IRR, EBITDA, LBO, DCF, etc.)
+
+### Logic, Causality & Argument Structure
+- If A causes B in the input, A causes B in the output — do not invert, soften, or reorder causal claims
+- Conditional logic ("if X then Y") must be preserved exactly
+- Do not change the direction of an argument: a bearish claim stays bearish, a bullish claim stays bullish
+- Do not add hedges that change the confidence level of a claim: "the model will fail" stays "the model will fail", not "the model may struggle"
+- Steps, sequences, and ordered lists must stay in the same order
+
+### Conclusions & Positions
+- Do not flip, soften, or strengthen the conclusions in the input
+- If the input says something is wrong, bad, or unlikely — keep it wrong, bad, or unlikely
+- If the input expresses certainty, keep it certain. If it expresses doubt, keep it doubtful.
+
+### What You CAN Change
+- Word choice, sentence structure, register, rhythm, transitions
+- Passive → active voice (unless it changes who did what)
+- Verbose phrases → concise equivalents (as long as no information is lost)
+- Formal jargon → plain-English equivalents (as long as precision is preserved)
+
+---
+
 ## FILLER OPENERS & THROAT-CLEARING
 
 Replace or delete any of these when they open a sentence or paragraph:

@@ -531,6 +531,8 @@ let twoPass         = true;
 const MAX_LOOPS   = 10;
 const SENT_THRESH = 0.70; // flag sentences above 70% AI prob
 let lastAiScore   = 1.0;  // tracks best score across loops
+let bestAiScore   = 1.0;  // lowest AI score seen
+let bestOutput    = '';   // output that achieved best score
 
 passToggle.addEventListener('click', () => {
   twoPass = !twoPass;
@@ -716,13 +718,27 @@ async function autoScanOutput() {
   }
 
   const currentScore = data.completely_generated_prob;
+
+  // Track best output seen so far
+  if (currentScore < bestAiScore) {
+    bestAiScore = currentScore;
+    bestOutput  = outputEl.value;
+  }
+
   const improved = currentScore < lastAiScore;
   lastAiScore = currentScore;
 
   if (improved && currentScore > 0 && loopCount < MAX_LOOPS) {
     await rehumanizeLoop(data);
   } else {
-    status.textContent = `done (${Math.round((1 - currentScore) * 100)}% human)`;
+    // Restore best version if current isn't it
+    if (bestOutput && bestOutput !== outputEl.value) {
+      outputEl.value = bestOutput;
+      updateOutCount();
+    }
+    const humanPct = Math.round((1 - bestAiScore) * 100);
+    status.textContent = `done — best: ${humanPct}% human`;
+    renderBadge(outScore, { predicted_class: bestAiScore > 0.5 ? 'ai' : bestAiScore > 0.2 ? 'mixed' : 'human', completely_generated_prob: bestAiScore });
     enableOutputButtons();
   }
 }
@@ -896,6 +912,8 @@ runBtn.addEventListener('click', async () => {
   lastSentences = [];
   loopCount = 0;
   lastAiScore = 1.0;
+  bestAiScore = 1.0;
+  bestOutput  = '';
   highlightBtn.disabled = true;
   status.textContent = twoPass ? 'pass 1 of 2 (rewrite)...' : 'processing...';
   try {
