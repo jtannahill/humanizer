@@ -637,3 +637,71 @@ Uniform sentence length is the single strongest AI signal. You must destroy it:
 - ZERO markdown bold
 - Output only the rewritten text, no preamble, no explanation
 - Stay within ±15% of the input length"""
+
+
+STRUCTURAL_PROMPT = """You are rewriting text to break AI detection by restructuring the document architecture. Content and meaning must be preserved exactly — only the structure changes.
+
+## REQUIRED STRUCTURAL INTERVENTIONS
+
+### Sentence-level
+- Find 2-3 consecutive short/medium sentences and fuse them into one long, complex sentence with subordinate clauses and a parenthetical aside — the kind that feels like a thought being worked out, not edited
+- Find 1-2 long uniform sentences and split them into shorter pieces, including at least one fragment or near-fragment (under 7 words)
+- Reorder clauses in at least 3 sentences: move what was at the end to the front, or bury the main point mid-sentence instead of leading with it
+- End at least 2 sentences on a weak word or trailing qualifier: "at least for now", "more or less", "which is part of the problem", "or so the thinking goes"
+
+### Paragraph-level
+- Split at least one long paragraph into two shorter ones — cut at a natural transition but don't add a transition word
+- Merge two short adjacent paragraphs into one longer one
+- Start at least one paragraph mid-thought, as if it follows naturally without a topic sentence
+- Let at least one paragraph end without a concluding sentence — just stop when the point is made
+
+### Length extremes (CRITICAL for burstiness)
+- There must be at least one sentence under 7 words in the output
+- There must be at least one sentence over 40 words in the output
+- No two consecutive sentences should have the same approximate length
+
+## HARD RULES
+- Preserve every number, percentage, name, date, and logical claim exactly
+- No em dashes, no en dashes, no space-hyphen-space
+- No markdown bold
+- Stay in the same person, tense, and register
+- Output only the rewritten text, no preamble
+- Stay within ±20% of the input length"""
+
+
+PERPLEXITY_PROMPT = """You are attacking the word-level predictability of AI-written text. AI detectors flag text where every word choice is the statistically most probable next token. Your job is to introduce lower-probability but equally natural word choices throughout.
+
+## TECHNIQUES
+
+### Replace predictable verbs
+- "demonstrates" → "shows", "points to", "makes clear", or something idiomatic like "lays out"
+- "indicates" → "suggests", "hints at", "says pretty clearly"
+- "enables" → "lets", "makes it possible", "opens up"
+- "utilizes" → "uses", "relies on", "works with"
+- Find the verb that a fluent writer would reach for, not the one a language model would
+
+### Replace abstract category nouns with concrete ones
+- "challenges" → name what the challenge actually is
+- "opportunities" → say what the opportunity is
+- "factors" → list them or use "things", "issues", "points"
+- "outcomes" → "results", "what happens", "the end state"
+
+### Inject idiom and informal register
+- At least 3 places: "pretty much", "kind of", "more or less", "at this point", "as far as anyone can tell", "the whole point", "which is a lot", "not exactly surprising", "go figure"
+- These should feel natural, not forced — use them where a real writer would reach for them
+
+### Break predictable grammatical patterns
+- Replace some "which/that" relative clauses with standalone sentences
+- Use "And" or "But" at the start of 1-2 sentences
+- Occasionally use a slightly unusual but grammatical word order to break the predictable subject-verb-object rhythm
+
+### Add genuine uncertainty markers
+- One phrase that sounds like real hedging, not AI hedging: "from what the data shows", "at least in this case", "which may not hold everywhere", "the jury's still out on"
+
+## HARD RULES
+- Preserve every number, percentage, name, date, and factual claim exactly
+- Don't make the text sound foreign, overly casual, or unnatural — just less predictable
+- No em dashes, no en dashes, no markdown bold
+- Stay in the same person and tense
+- Output only the rewritten text, one sentence per line if input was sentence-level, full text if full document
+- Stay within ±10% of input length"""

@@ -13,7 +13,7 @@ import os
 import anthropic
 from docx import Document
 from flask import Flask, Response, request, send_file, stream_with_context
-from prompt import SYSTEM_PROMPT, PASS2_PROMPT
+from prompt import SYSTEM_PROMPT, PASS2_PROMPT, STRUCTURAL_PROMPT, PERPLEXITY_PROMPT
 
 app = Flask(__name__)
 
@@ -529,7 +529,7 @@ let sourceFilename  = null;
 let twoPass         = true;
 
 const MAX_LOOPS   = 10;
-const SENT_THRESH = 0.70; // flag sentences above 70% AI prob
+const SENT_THRESH = 0.50; // flag sentences above 50% AI prob
 let lastAiScore   = 1.0;  // tracks best score across loops
 let bestAiScore   = 1.0;  // lowest AI score seen
 let bestOutput    = '';   // output that achieved best score
@@ -666,43 +666,55 @@ highlightBtn.addEventListener('click', () => {
 
 // --- Re-humanize loop ---
 async function rehumanizeLoop(scanData) {
-  const flagged = (scanData.sentences || [])
-    .filter(s => s.generated_prob > SENT_THRESH)
-    .map(s => s.sentence);
-
-  if (flagged.length === 0) {
-    status.textContent = 'done';
-    enableOutputButtons();
-    return;
-  }
-
   loopCount++;
   const scorePct = Math.round((1 - lastAiScore) * 100);
-  status.textContent = `loop ${loopCount}/${MAX_LOOPS} — ${scorePct}% human, ${flagged.length} sentences still flagged...`;
+  const strategy = loopCount % 3; // 0=sentence, 1=perplexity, 2=structural
+  const strategyLabel = ['sentence rewrite', 'perplexity injection', 'structural rewrite'][strategy];
+
   exitHighlight();
+  status.textContent = `loop ${loopCount}/${MAX_LOOPS} — ${scorePct}% human — ${strategyLabel}...`;
 
   try {
-    const res = await fetch('/rehumanize-sentences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sentences: flagged,
-        full_text: outputEl.value,
-        model: modelSelect.value,
-        overall_burstiness: scanData.overall_burstiness || 0,
-        subclass: scanData.subclass || {}
-      })
-    });
-    if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
-    const data = await res.json();
-    if (data.text) { outputEl.value = data.text; updateOutCount(); }
+    if (strategy === 2) {
+      // Structural rewrite: full document
+      const res = await fetch('/structural-rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_text: outputEl.value, model: modelSelect.value })
+      });
+      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      const data = await res.json();
+      if (data.text) { outputEl.value = data.text; updateOutCount(); }
+
+    } else {
+      // Sentence-level (rewrite or perplexity)
+      const flagged = (scanData.sentences || [])
+        .filter(s => s.generated_prob > SENT_THRESH)
+        .map(s => s.sentence);
+      if (flagged.length === 0) { status.textContent = 'done'; enableOutputButtons(); return; }
+
+      const endpoint = strategy === 1 ? '/perplexity-inject' : '/rehumanize-sentences';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sentences: flagged,
+          full_text: outputEl.value,
+          model: modelSelect.value,
+          overall_burstiness: scanData.overall_burstiness || 0,
+          subclass: scanData.subclass || {}
+        })
+      });
+      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      const data = await res.json();
+      if (data.text) { outputEl.value = data.text; updateOutCount(); }
+    }
   } catch(e) {
     status.textContent = 'done';
     enableOutputButtons();
     return;
   }
 
-  // Re-scan and potentially loop again
   await autoScanOutput();
 }
 
@@ -1148,6 +1160,66 @@ Sentences to rewrite:
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
 
+    return {"text": clean(result)}
+
+
+@app.route("/structural-rewrite", methods=["POST"])
+def structural_rewrite():
+    data = request.get_json()
+    full_text = (data or {}).get("full_text", "").strip()
+    model = (data or {}).get("model", "claude-opus-4-7")
+    if not full_text:
+        return {"error": "missing full_text"}, 400
+    valid_models = {"claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    if model not in valid_models:
+        model = "claude-opus-4-7"
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY not set"}, 500
+    client = anthropic.Anthropic(api_key=api_key)
+    response = client.messages.create(
+        model=model,
+        max_tokens=16000,
+        system=STRUCTURAL_PROMPT,
+        messages=[{"role": "user", "content": f"Restructure this text to break AI detection patterns. Preserve all meaning, numbers, and facts exactly.\n\n<text>\n{full_text}\n</text>"}]
+    )
+    raw = response.content[0].text.strip()
+    def clean(s):
+        return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
+    return {"text": clean(raw)}
+
+
+@app.route("/perplexity-inject", methods=["POST"])
+def perplexity_inject():
+    import re as re_mod
+    data = request.get_json()
+    sentences = (data or {}).get("sentences", [])
+    full_text = (data or {}).get("full_text", "").strip()
+    model = (data or {}).get("model", "claude-opus-4-7")
+    if not sentences or not full_text:
+        return {"error": "missing sentences or full_text"}, 400
+    valid_models = {"claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    if model not in valid_models:
+        model = "claude-opus-4-7"
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY not set"}, 500
+    client = anthropic.Anthropic(api_key=api_key)
+    numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
+    response = client.messages.create(
+        model=model,
+        max_tokens=4000,
+        system=PERPLEXITY_PROMPT,
+        messages=[{"role": "user", "content": f"Inject lower-probability word choices into these flagged sentences. Preserve all numbers, names, and facts exactly. Return only the rewritten sentences, one per line, same order.\n\n{numbered}"}]
+    )
+    raw = response.content[0].text.strip()
+    lines = [re_mod.sub(r'^\d+\.\s*', '', ln).strip() for ln in raw.split('\n') if ln.strip()]
+    result = full_text
+    for original, rewritten in zip(sentences, lines):
+        if rewritten and original != rewritten:
+            result = result.replace(original, rewritten, 1)
+    def clean(s):
+        return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
     return {"text": clean(result)}
 
 
