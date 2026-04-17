@@ -237,6 +237,41 @@ HTML = r"""<!DOCTYPE html>
 
   #diff-view.active { display: block; }
 
+  /* sentence highlight overlay */
+  #highlight-view {
+    display: none;
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    padding: 24px;
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    line-height: 1.75;
+    color: var(--ink);
+    background: var(--paper);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  #highlight-view.active { display: block; }
+
+  mark.sent-ai {
+    background: rgba(192,57,43,0.18);
+    color: var(--ink);
+    border-radius: 2px;
+    padding: 0 1px;
+    cursor: pointer;
+    border-bottom: 2px solid var(--red);
+  }
+
+  mark.sent-mixed {
+    background: rgba(176,125,26,0.14);
+    color: var(--ink);
+    border-radius: 2px;
+    padding: 0 1px;
+    border-bottom: 2px solid #b07d1a;
+  }
+
   .diff-add {
     background: rgba(39,174,96,0.18);
     color: #1a6636;
@@ -444,6 +479,7 @@ HTML = r"""<!DOCTYPE html>
   <div class="pane">
     <textarea id="output" placeholder="Humanized output will appear here..."></textarea>
     <div id="diff-view"></div>
+    <div id="highlight-view"></div>
   </div>
 </main>
 
@@ -452,6 +488,7 @@ HTML = r"""<!DOCTYPE html>
   <button id="copy-btn" disabled>COPY</button>
   <button id="export-btn" disabled>EXPORT .DOCX</button>
   <button id="diff-btn" disabled>DIFF</button>
+  <button id="highlight-btn" disabled>HIGHLIGHT</button>
   <button id="scan-btn" disabled>SCAN</button>
   <button id="clear-btn">CLEAR</button>
   <span id="status"></span>
@@ -462,33 +499,51 @@ HTML = r"""<!DOCTYPE html>
 </div>
 
 <script>
-const inputEl  = document.getElementById('input');
-const outputEl = document.getElementById('output');
-const runBtn   = document.getElementById('run-btn');
-const copyBtn  = document.getElementById('copy-btn');
-const exportBtn= document.getElementById('export-btn');
-const diffBtn  = document.getElementById('diff-btn');
-const scanBtn  = document.getElementById('scan-btn');
-const clearBtn = document.getElementById('clear-btn');
-const inScore  = document.getElementById('in-score');
-const outScore = document.getElementById('out-score');
-const status   = document.getElementById('status');
-const inCount  = document.getElementById('in-count');
-const outCount = document.getElementById('out-count');
-const diffView = document.getElementById('diff-view');
-const ctxMenu  = document.getElementById('ctx-menu');
-const ctxRehumanize = document.getElementById('ctx-rehumanize');
-const modelSelect = document.getElementById('model-select');
-const passToggle  = document.getElementById('pass-toggle');
-let diffActive = false;
-let sourceFilename = null;
-let twoPass = true;
+const inputEl      = document.getElementById('input');
+const outputEl     = document.getElementById('output');
+const runBtn       = document.getElementById('run-btn');
+const copyBtn      = document.getElementById('copy-btn');
+const exportBtn    = document.getElementById('export-btn');
+const diffBtn      = document.getElementById('diff-btn');
+const highlightBtn = document.getElementById('highlight-btn');
+const scanBtn      = document.getElementById('scan-btn');
+const clearBtn     = document.getElementById('clear-btn');
+const inScore      = document.getElementById('in-score');
+const outScore     = document.getElementById('out-score');
+const status       = document.getElementById('status');
+const inCount      = document.getElementById('in-count');
+const outCount     = document.getElementById('out-count');
+const diffView     = document.getElementById('diff-view');
+const highlightView= document.getElementById('highlight-view');
+const ctxMenu      = document.getElementById('ctx-menu');
+const ctxRehumanize= document.getElementById('ctx-rehumanize');
+const modelSelect  = document.getElementById('model-select');
+const passToggle   = document.getElementById('pass-toggle');
+
+let diffActive      = false;
+let highlightActive = false;
+let lastSentences   = [];
+let loopCount       = 0;
+let sourceFilename  = null;
+let twoPass         = true;
+
+const MAX_LOOPS      = 3;
+const AI_LOOP_THRESH = 0.20; // re-loop if AI prob still above 20%
+const SENT_THRESH    = 0.70; // flag sentences above 70% AI prob
 
 passToggle.addEventListener('click', () => {
   twoPass = !twoPass;
   passToggle.textContent = twoPass ? '2-pass' : '1-pass';
   passToggle.classList.toggle('active', twoPass);
 });
+
+function enableOutputButtons() {
+  copyBtn.disabled = false;
+  exportBtn.disabled = false;
+  diffBtn.disabled = false;
+  scanBtn.disabled = false;
+  if (lastSentences.length > 0) highlightBtn.disabled = false;
+}
 
 function countWords(str) {
   return str.trim() ? str.trim().split(/\s+/).length : 0;
@@ -521,10 +576,14 @@ clearBtn.addEventListener('click', () => {
   copyBtn.disabled = true;
   exportBtn.disabled = true;
   diffBtn.disabled = true;
+  highlightBtn.disabled = true;
   scanBtn.disabled = true;
   inScore.innerHTML = '';
   outScore.innerHTML = '';
+  lastSentences = [];
+  loopCount = 0;
   exitDiff();
+  exitHighlight();
   status.textContent = '';
 });
 
@@ -554,21 +613,126 @@ async function runScan(text, badgeEl) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text })
     });
-    if (!res.ok) { badgeEl.innerHTML = ''; return; }
+    if (!res.ok) { badgeEl.innerHTML = ''; return null; }
     const data = await res.json();
     renderBadge(badgeEl, data);
+    return data;
   } catch(e) {
     badgeEl.innerHTML = '';
+    return null;
+  }
+}
+
+// --- Sentence highlight overlay ---
+function showSentenceHighlights(sentences) {
+  if (!sentences || sentences.length === 0) return;
+  let displayText = outputEl.value
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  for (const s of sentences) {
+    const prob = s.generated_prob;
+    if (prob < 0.5) continue;
+    const cls = prob > 0.8 ? 'sent-ai' : 'sent-mixed';
+    const pct = Math.round(prob * 100);
+    const escaped = s.sentence.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    displayText = displayText.replace(
+      new RegExp(escaped, 'g'),
+      `<mark class="${cls}" title="${pct}% AI">$&</mark>`
+    );
+  }
+  highlightView.innerHTML = displayText.replace(/\n/g,'<br>');
+  highlightView.classList.add('active');
+  outputEl.style.visibility = 'hidden';
+  highlightActive = true;
+  highlightBtn.textContent = 'EDIT';
+  highlightBtn.disabled = false;
+}
+
+function exitHighlight() {
+  highlightView.classList.remove('active');
+  outputEl.style.visibility = '';
+  highlightActive = false;
+  highlightBtn.textContent = 'HIGHLIGHT';
+}
+
+highlightBtn.addEventListener('click', () => {
+  if (highlightActive) exitHighlight();
+  else if (lastSentences.length > 0) showSentenceHighlights(lastSentences);
+});
+
+// --- Re-humanize loop ---
+async function rehumanizeLoop(scanData) {
+  const flagged = (scanData.sentences || [])
+    .filter(s => s.generated_prob > SENT_THRESH)
+    .map(s => s.sentence);
+
+  if (flagged.length === 0) {
+    status.textContent = 'done';
+    enableOutputButtons();
+    return;
+  }
+
+  loopCount++;
+  status.textContent = `re-humanizing loop ${loopCount}/${MAX_LOOPS} (${flagged.length} flagged sentences)...`;
+  exitHighlight();
+
+  try {
+    const res = await fetch('/rehumanize-sentences', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sentences: flagged, full_text: outputEl.value, model: modelSelect.value })
+    });
+    if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+    const data = await res.json();
+    if (data.text) { outputEl.value = data.text; updateOutCount(); }
+  } catch(e) {
+    status.textContent = 'done';
+    enableOutputButtons();
+    return;
+  }
+
+  // Re-scan and potentially loop again
+  await autoScanOutput();
+}
+
+// --- Auto-scan after humanize ---
+async function autoScanOutput() {
+  const text = outputEl.value.trim();
+  if (!text) { status.textContent = 'done'; enableOutputButtons(); return; }
+
+  status.textContent = 'scanning...';
+  outScore.innerHTML = '<span class="score-badge scanning">scanning…</span>';
+
+  const data = await runScan(text, outScore);
+  if (!data) { status.textContent = 'done'; enableOutputButtons(); return; }
+
+  lastSentences = data.sentences || [];
+  if (lastSentences.length > 0) {
+    showSentenceHighlights(lastSentences);
+    highlightBtn.disabled = false;
+  }
+
+  if (data.completely_generated_prob > AI_LOOP_THRESH && loopCount < MAX_LOOPS) {
+    await rehumanizeLoop(data);
+  } else {
+    status.textContent = 'done';
+    enableOutputButtons();
   }
 }
 
 scanBtn.addEventListener('click', async () => {
   scanBtn.disabled = true;
   scanBtn.textContent = 'SCANNING…';
-  await Promise.all([
-    inputEl.value.trim()  ? runScan(inputEl.value.trim(),  inScore)  : Promise.resolve(),
-    outputEl.value.trim() ? runScan(outputEl.value.trim(), outScore) : Promise.resolve(),
+  exitHighlight();
+  const [, outData] = await Promise.all([
+    inputEl.value.trim()  ? runScan(inputEl.value.trim(),  inScore)  : Promise.resolve(null),
+    outputEl.value.trim() ? runScan(outputEl.value.trim(), outScore) : Promise.resolve(null),
   ]);
+  if (outData) {
+    lastSentences = outData.sentences || [];
+    if (lastSentences.length > 0) { showSentenceHighlights(lastSentences); highlightBtn.disabled = false; }
+  }
   scanBtn.disabled = false;
   scanBtn.textContent = 'SCAN';
 });
@@ -720,17 +884,21 @@ runBtn.addEventListener('click', async () => {
   scanBtn.disabled = true;
   outScore.innerHTML = '';
   exitDiff();
+  exitHighlight();
   outputEl.value = '';
   outCount.innerHTML = '-';
+  lastSentences = [];
+  loopCount = 0;
+  highlightBtn.disabled = true;
   status.textContent = twoPass ? 'pass 1 of 2 (rewrite)...' : 'processing...';
   try {
     await streamHumanize(
       text,
       full => {
-        if (!outputEl.value && full.length > 0) status.textContent = 'pass 2 of 2 (burstiness)...';
+        if (!outputEl.value && full.length > 0) status.textContent = twoPass ? 'pass 2 of 2 (burstiness)...' : 'processing...';
         outputEl.value = full; updateOutCount(); outputEl.scrollTop = outputEl.scrollHeight;
       },
-      ()   => { status.textContent = 'done'; copyBtn.disabled = false; exportBtn.disabled = false; diffBtn.disabled = false; scanBtn.disabled = false; },
+      async () => { await autoScanOutput(); },
       err  => { status.textContent = 'error: ' + err; }
     );
   } catch(e) {
@@ -843,6 +1011,7 @@ def detect():
         "predicted_class":           doc["predicted_class"],
         "completely_generated_prob": doc["completely_generated_prob"],
         "confidence_score":          doc["confidence_score"],
+        "sentences":                 doc.get("sentences", []),
     }
 
 
@@ -864,6 +1033,62 @@ def export_docx():
     buf.seek(0)
     return send_file(buf, mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                      as_attachment=True, download_name="humanized.docx")
+
+
+@app.route("/rehumanize-sentences", methods=["POST"])
+def rehumanize_sentences():
+    import re as re_mod
+    data = request.get_json()
+    sentences = (data or {}).get("sentences", [])
+    full_text = (data or {}).get("full_text", "").strip()
+    model = (data or {}).get("model", "claude-opus-4-6")
+
+    if not sentences or not full_text:
+        return {"error": "missing sentences or full_text"}, 400
+
+    valid_models = {"claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    if model not in valid_models:
+        model = "claude-opus-4-6"
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY not set"}, 500
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
+    prompt = f"""These sentences were flagged as AI-written by a detector. Rewrite each one to sound more human while preserving the exact meaning.
+
+Rules:
+- Keep approximately the same length
+- No em dashes, no en dashes, no markdown bold
+- Stay in the same person, tense, and register as the original
+- Use contractions where natural
+- Vary the sentence structure from the original
+- Return ONLY the rewritten sentences, one per line, in the exact same order
+- Do not add numbering, labels, or any preamble
+
+Sentences to rewrite:
+{numbered}"""
+
+    response = client.messages.create(
+        model=model,
+        max_tokens=4000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    raw = response.content[0].text.strip()
+    lines = [re_mod.sub(r'^\d+\.\s*', '', ln).strip() for ln in raw.split('\n') if ln.strip()]
+
+    result = full_text
+    for original, rewritten in zip(sentences, lines):
+        if rewritten and original != rewritten:
+            result = result.replace(original, rewritten, 1)
+
+    def clean(s):
+        return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
+
+    return {"text": clean(result)}
 
 
 @app.route("/humanize", methods=["POST"])
