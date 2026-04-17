@@ -528,9 +528,9 @@ let loopCount       = 0;
 let sourceFilename  = null;
 let twoPass         = true;
 
-const MAX_LOOPS      = 3;
-const AI_LOOP_THRESH = 0.20; // re-loop if AI prob still above 20%
-const SENT_THRESH    = 0.70; // flag sentences above 70% AI prob
+const MAX_LOOPS   = 10;
+const SENT_THRESH = 0.70; // flag sentences above 70% AI prob
+let lastAiScore   = 1.0;  // tracks best score across loops
 
 passToggle.addEventListener('click', () => {
   twoPass = !twoPass;
@@ -675,7 +675,8 @@ async function rehumanizeLoop(scanData) {
   }
 
   loopCount++;
-  status.textContent = `re-humanizing loop ${loopCount}/${MAX_LOOPS} (${flagged.length} flagged sentences)...`;
+  const scorePct = Math.round((1 - lastAiScore) * 100);
+  status.textContent = `loop ${loopCount}/${MAX_LOOPS} — ${scorePct}% human, ${flagged.length} sentences still flagged...`;
   exitHighlight();
 
   try {
@@ -714,10 +715,14 @@ async function autoScanOutput() {
     highlightBtn.disabled = false;
   }
 
-  if (data.completely_generated_prob > AI_LOOP_THRESH && loopCount < MAX_LOOPS) {
+  const currentScore = data.completely_generated_prob;
+  const improved = currentScore < lastAiScore;
+  lastAiScore = currentScore;
+
+  if (improved && currentScore > 0 && loopCount < MAX_LOOPS) {
     await rehumanizeLoop(data);
   } else {
-    status.textContent = 'done';
+    status.textContent = `done (${Math.round((1 - currentScore) * 100)}% human)`;
     enableOutputButtons();
   }
 }
@@ -890,6 +895,7 @@ runBtn.addEventListener('click', async () => {
   outCount.innerHTML = '-';
   lastSentences = [];
   loopCount = 0;
+  lastAiScore = 1.0;
   highlightBtn.disabled = true;
   status.textContent = twoPass ? 'pass 1 of 2 (rewrite)...' : 'processing...';
   try {
