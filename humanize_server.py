@@ -446,6 +446,7 @@ HTML = r"""<!DOCTYPE html>
   <div class="tagline">strip AI fingerprints<br>from your prose</div>
   <div class="model-controls">
     <select id="model-select">
+      <option value="claude-opus-4-7" selected>Opus 4.7</option>
       <option value="claude-opus-4-6">Opus 4.6</option>
       <option value="claude-sonnet-4-6">Sonnet 4.6</option>
       <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
@@ -1046,9 +1047,9 @@ def rehumanize_sentences():
     if not sentences or not full_text:
         return {"error": "missing sentences or full_text"}, 400
 
-    valid_models = {"claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    valid_models = {"claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
     if model not in valid_models:
-        model = "claude-opus-4-6"
+        model = "claude-opus-4-7"
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -1100,9 +1101,9 @@ def humanize():
     if not text:
         return {"error": "no text provided"}, 400
 
-    valid_models = {"claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    valid_models = {"claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
     if model not in valid_models:
-        model = "claude-opus-4-6"
+        model = "claude-opus-4-7"
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
