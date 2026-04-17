@@ -727,8 +727,8 @@ async function autoScanOutput() {
 
   lastAiScore = currentScore;
 
-  // Keep looping while still 100% AI and under the cap
-  if (currentScore >= 0.99 && loopCount < MAX_LOOPS) {
+  // Keep looping until cap — always save best, always try for lower
+  if (loopCount < MAX_LOOPS) {
     await rehumanizeLoop(data);
   } else {
     // Restore best version if current isn't it
