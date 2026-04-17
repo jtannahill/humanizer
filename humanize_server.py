@@ -10,6 +10,8 @@ Usage:
 import io
 import json
 import os
+import re
+import random
 import anthropic
 from docx import Document
 from flask import Flask, Response, request, send_file, stream_with_context
@@ -452,6 +454,7 @@ HTML = r"""<!DOCTYPE html>
       <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
     </select>
     <button id="pass-toggle" class="active" title="Toggle 1-pass / 2-pass">2-pass</button>
+    <button id="nuclear-toggle" title="Include nuclear rewrite in loop (extracts facts, rewrites from scratch)">nuclear</button>
   </div>
 </header>
 
@@ -518,8 +521,9 @@ const diffView     = document.getElementById('diff-view');
 const highlightView= document.getElementById('highlight-view');
 const ctxMenu      = document.getElementById('ctx-menu');
 const ctxRehumanize= document.getElementById('ctx-rehumanize');
-const modelSelect  = document.getElementById('model-select');
-const passToggle   = document.getElementById('pass-toggle');
+const modelSelect   = document.getElementById('model-select');
+const passToggle    = document.getElementById('pass-toggle');
+const nuclearToggle = document.getElementById('nuclear-toggle');
 
 let diffActive      = false;
 let highlightActive = false;
@@ -527,17 +531,23 @@ let lastSentences   = [];
 let loopCount       = 0;
 let sourceFilename  = null;
 let twoPass         = true;
+let nuclearEnabled  = false;
 
 const MAX_LOOPS   = 10;
-const SENT_THRESH = 0.50; // flag sentences above 50% AI prob
-let lastAiScore   = 1.0;  // tracks best score across loops
-let bestAiScore   = 1.0;  // lowest AI score seen
-let bestOutput    = '';   // output that achieved best score
+const SENT_THRESH = 0.50;
+let lastAiScore   = 1.0;
+let bestAiScore   = 1.0;
+let bestOutput    = '';
 
 passToggle.addEventListener('click', () => {
   twoPass = !twoPass;
   passToggle.textContent = twoPass ? '2-pass' : '1-pass';
   passToggle.classList.toggle('active', twoPass);
+});
+
+nuclearToggle.addEventListener('click', () => {
+  nuclearEnabled = !nuclearEnabled;
+  nuclearToggle.classList.toggle('active', nuclearEnabled);
 });
 
 function enableOutputButtons() {
@@ -668,14 +678,28 @@ highlightBtn.addEventListener('click', () => {
 async function rehumanizeLoop(scanData) {
   loopCount++;
   const scorePct = Math.round((1 - lastAiScore) * 100);
-  const strategy = loopCount % 3; // 0=sentence, 1=perplexity, 2=structural
-  const strategyLabel = ['sentence rewrite', 'perplexity injection', 'structural rewrite'][strategy];
+  const strategies = nuclearEnabled
+    ? ['sentence rewrite', 'perplexity injection', 'structural rewrite', 'nuclear rewrite']
+    : ['sentence rewrite', 'perplexity injection', 'structural rewrite'];
+  const strategy = loopCount % strategies.length;
+  const strategyLabel = strategies[strategy];
 
   exitHighlight();
   status.textContent = `loop ${loopCount}/${MAX_LOOPS} — ${scorePct}% human — ${strategyLabel}...`;
 
   try {
-    if (strategy === 2) {
+    if (strategyLabel === 'nuclear rewrite') {
+      // Nuclear: extract facts → rewrite from scratch
+      const res = await fetch('/nuclear-rewrite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_text: outputEl.value, model: modelSelect.value })
+      });
+      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      const data = await res.json();
+      if (data.text) { outputEl.value = data.text; updateOutCount(); }
+
+    } else if (strategyLabel === 'structural rewrite') {
       // Structural rewrite: full document
       const res = await fetch('/structural-rewrite', {
         method: 'POST',
@@ -693,7 +717,7 @@ async function rehumanizeLoop(scanData) {
         .map(s => s.sentence);
       if (flagged.length === 0) { status.textContent = 'done'; enableOutputButtons(); return; }
 
-      const endpoint = strategy === 1 ? '/perplexity-inject' : '/rehumanize-sentences';
+      const endpoint = strategyLabel === 'perplexity injection' ? '/perplexity-inject' : '/rehumanize-sentences';
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1160,7 +1184,75 @@ Sentences to rewrite:
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
 
-    return {"text": clean(result)}
+    return {"text": programmatic_burstiness(clean(result))}
+
+
+def _split_sentences(text):
+    return [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
+
+def _wc(s):
+    return len(s.split())
+
+def _merge_two(s1, s2):
+    s1 = s1.rstrip('.!?,')
+    s2 = s2.strip()
+    if s2:
+        s2 = s2[0].lower() + s2[1:]
+    connector = random.choice([', and ', ', so ', ', which '])
+    return s1 + connector + s2
+
+def _split_long(sentence):
+    words = sentence.split()
+    n = len(words)
+    lower, upper = n // 3, 2 * n // 3
+    for i in range(lower, upper):
+        if words[i].lower() in {'and', 'but', 'because', 'although', 'while', 'which', 'where', 'though'}:
+            p1 = ' '.join(words[:i]) + '.'
+            p2 = ' '.join(words[i:])
+            return [p1, p2[0].upper() + p2[1:]]
+    for i in range(lower, upper):
+        if words[i].endswith(','):
+            p1 = ' '.join(words[:i+1]).rstrip(',') + '.'
+            p2 = ' '.join(words[i+1:])
+            if p2:
+                return [p1, p2[0].upper() + p2[1:]]
+    return [sentence]
+
+def programmatic_burstiness(text):
+    """Forcibly vary sentence lengths — runs outside Claude to inject genuine burstiness."""
+    import random as _r
+    _r.seed(7)
+    paragraphs = text.split('\n\n')
+    result = []
+    for para in paragraphs:
+        para = para.strip()
+        if not para:
+            continue
+        sents = _split_sentences(para)
+        if len(sents) < 2:
+            result.append(para)
+            continue
+        out = []
+        i = 0
+        merge_budget = max(1, len(sents) // 4)
+        split_budget = max(1, len(sents) // 6)
+        merges = splits = 0
+        while i < len(sents):
+            s = sents[i]
+            wc = _wc(s)
+            if merges < merge_budget and wc < 13 and i + 1 < len(sents) and _wc(sents[i+1]) < 13:
+                out.append(_merge_two(s, sents[i+1]))
+                i += 2; merges += 1
+            elif splits < split_budget and wc > 32:
+                parts = _split_long(s)
+                out.extend(parts)
+                i += 1
+                if len(parts) > 1: splits += 1
+            else:
+                out.append(s)
+                i += 1
+        result.append(' '.join(out))
+    return '\n\n'.join(result)
 
 
 @app.route("/structural-rewrite", methods=["POST"])
@@ -1186,7 +1278,7 @@ def structural_rewrite():
     raw = response.content[0].text.strip()
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
-    return {"text": clean(raw)}
+    return {"text": programmatic_burstiness(clean(raw))}
 
 
 @app.route("/perplexity-inject", methods=["POST"])
@@ -1220,7 +1312,53 @@ def perplexity_inject():
             result = result.replace(original, rewritten, 1)
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
-    return {"text": clean(result)}
+    return {"text": programmatic_burstiness(clean(result))}
+
+
+@app.route("/nuclear-rewrite", methods=["POST"])
+def nuclear_rewrite():
+    data = request.get_json()
+    full_text = (data or {}).get("full_text", "").strip()
+    model = (data or {}).get("model", "claude-opus-4-7")
+    if not full_text:
+        return {"error": "missing full_text"}, 400
+    valid_models = {"claude-opus-4-7", "claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    if model not in valid_models:
+        model = "claude-opus-4-7"
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY not set"}, 500
+    client = anthropic.Anthropic(api_key=api_key)
+    def clean(s):
+        return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
+
+    # Step 1: Extract every fact, number, name, claim as bullet points
+    extract = client.messages.create(
+        model=model, max_tokens=2000,
+        messages=[{"role": "user", "content": f"""Extract every key fact, claim, number, name, date, and logical point from this text as a compact bulleted list. Include every specific detail. Do not summarize or omit anything.
+
+<text>
+{full_text}
+</text>"""}]
+    )
+    facts = extract.content[0].text.strip()
+
+    # Step 2: Write completely fresh prose from those facts — new structure, new sentences
+    rewrite = client.messages.create(
+        model=model, max_tokens=16000,
+        system=SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": f"""Write fresh human-sounding prose using ONLY these extracted facts. Do NOT follow the original sentence structure at all. Build entirely new sentences from scratch. Include every fact listed.
+
+Facts:
+{facts}
+
+Rules:
+- Same register and tone as the source
+- No em dashes, no en dashes, no markdown bold
+- Output only the prose, no preamble"""}]
+    )
+    raw = rewrite.content[0].text.strip()
+    return {"text": programmatic_burstiness(clean(raw))}
 
 
 @app.route("/humanize", methods=["POST"])
