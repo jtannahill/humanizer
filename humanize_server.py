@@ -13,7 +13,7 @@ import os
 import anthropic
 from docx import Document
 from flask import Flask, Response, request, send_file, stream_with_context
-from prompt import SYSTEM_PROMPT
+from prompt import SYSTEM_PROMPT, PASS2_PROMPT
 
 app = Flask(__name__)
 
@@ -23,7 +23,7 @@ HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Humanizer</title>
+<title>Humaniza</title>
 <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -86,15 +86,45 @@ HTML = r"""<!DOCTYPE html>
     line-height: 1.4;
   }
 
-  .model-tag {
+  .model-controls {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .model-controls select,
+  .model-controls button {
+    font-family: var(--mono);
     font-size: 0.62rem;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    background: transparent;
     color: var(--rule);
     border: 1px solid var(--rule);
     padding: 3px 10px;
     border-radius: 2px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .model-controls select:hover,
+  .model-controls button:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .model-controls select option {
+    background: var(--paper-dark);
+    color: var(--ink);
+  }
+
+  #pass-toggle.active {
+    color: var(--ink);
+    border-color: var(--ink);
   }
 
   main {
@@ -377,9 +407,16 @@ HTML = r"""<!DOCTYPE html>
 <body>
 
 <header>
-  <div class="logo">Humanizer</div>
+  <div class="logo">Humaniza</div>
   <div class="tagline">strip AI fingerprints<br>from your prose</div>
-  <div class="model-tag">claude-opus-4-6</div>
+  <div class="model-controls">
+    <select id="model-select">
+      <option value="claude-opus-4-6">Opus 4.6</option>
+      <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+      <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+    </select>
+    <button id="pass-toggle" class="active" title="Toggle 1-pass / 2-pass">2-pass</button>
+  </div>
 </header>
 
 <main>
@@ -441,8 +478,17 @@ const outCount = document.getElementById('out-count');
 const diffView = document.getElementById('diff-view');
 const ctxMenu  = document.getElementById('ctx-menu');
 const ctxRehumanize = document.getElementById('ctx-rehumanize');
+const modelSelect = document.getElementById('model-select');
+const passToggle  = document.getElementById('pass-toggle');
 let diffActive = false;
 let sourceFilename = null;
+let twoPass = true;
+
+passToggle.addEventListener('click', () => {
+  twoPass = !twoPass;
+  passToggle.textContent = twoPass ? '2-pass' : '1-pass';
+  passToggle.classList.toggle('active', twoPass);
+});
 
 function countWords(str) {
   return str.trim() ? str.trim().split(/\s+/).length : 0;
@@ -643,7 +689,7 @@ async function streamHumanize(text, onChunk, onDone, onError) {
   const res = await fetch('/humanize', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text })
+    body: JSON.stringify({ text, model: modelSelect.value, two_pass: twoPass })
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -676,11 +722,14 @@ runBtn.addEventListener('click', async () => {
   exitDiff();
   outputEl.value = '';
   outCount.innerHTML = '-';
-  status.textContent = 'processing...';
+  status.textContent = twoPass ? 'pass 1 of 2 (rewrite)...' : 'processing...';
   try {
     await streamHumanize(
       text,
-      full => { outputEl.value = full; updateOutCount(); outputEl.scrollTop = outputEl.scrollHeight; },
+      full => {
+        if (!outputEl.value && full.length > 0) status.textContent = 'pass 2 of 2 (burstiness)...';
+        outputEl.value = full; updateOutCount(); outputEl.scrollTop = outputEl.scrollHeight;
+      },
       ()   => { status.textContent = 'done'; copyBtn.disabled = false; exportBtn.disabled = false; diffBtn.disabled = false; scanBtn.disabled = false; },
       err  => { status.textContent = 'error: ' + err; }
     );
@@ -821,8 +870,14 @@ def export_docx():
 def humanize():
     data = request.get_json()
     text = (data or {}).get("text", "").strip()
+    model = (data or {}).get("model", "claude-opus-4-6")
+    two_pass = (data or {}).get("two_pass", True)
     if not text:
         return {"error": "no text provided"}, 400
+
+    valid_models = {"claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"}
+    if model not in valid_models:
+        model = "claude-opus-4-6"
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
@@ -830,21 +885,49 @@ def humanize():
 
     client = anthropic.Anthropic(api_key=api_key)
 
+    def clean(s):
+        return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
+
     def generate():
-        with client.messages.stream(
-            model="claude-opus-4-6",
-            max_tokens=16000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": f"Humanize the following text:\n\n{text}"}]
-        ) as stream:
-            for chunk in stream.text_stream:
-                yield chunk.replace("\u2014", ",").replace("**", "")
+        if two_pass:
+            # Pass 1: content rewrite (silent)
+            pass1_chunks = []
+            with client.messages.stream(
+                model=model,
+                max_tokens=16000,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": f"Humanize the following text:\n\n{text}"}]
+            ) as stream:
+                for chunk in stream.text_stream:
+                    pass1_chunks.append(chunk)
+
+            pass1_text = clean("".join(pass1_chunks))
+
+            # Pass 2: perplexity + burstiness — stream to client
+            with client.messages.stream(
+                model=model,
+                max_tokens=16000,
+                system=PASS2_PROMPT,
+                messages=[{"role": "user", "content": f"Break the statistical AI patterns in this text:\n\n{pass1_text}"}]
+            ) as stream:
+                for chunk in stream.text_stream:
+                    yield clean(chunk)
+        else:
+            # Single pass — stream directly
+            with client.messages.stream(
+                model=model,
+                max_tokens=16000,
+                system=SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": f"Humanize the following text:\n\n{text}"}]
+            ) as stream:
+                for chunk in stream.text_stream:
+                    yield clean(chunk)
 
     return Response(stream_with_context(generate()), mimetype="text/plain")
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5757))
-    print(f"Humanizer running at http://localhost:{port}")
+    print(f"Humaniza running at http://localhost:{port}")
     print("Press Ctrl+C to stop.\n")
     app.run(port=port, debug=False)
