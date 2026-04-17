@@ -725,10 +725,10 @@ async function autoScanOutput() {
     bestOutput  = outputEl.value;
   }
 
-  const improved = currentScore < lastAiScore;
   lastAiScore = currentScore;
 
-  if (improved && currentScore > 0 && loopCount < MAX_LOOPS) {
+  // Keep looping while still 100% AI and under the cap
+  if (currentScore >= 0.99 && loopCount < MAX_LOOPS) {
     await rehumanizeLoop(data);
   } else {
     // Restore best version if current isn't it
