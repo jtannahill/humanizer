@@ -879,7 +879,9 @@ function stripFormatting(text) {
 }
 
 copyBtn.addEventListener('click', async () => {
-  await navigator.clipboard.writeText(stripFormatting(outputEl.value));
+  const outputText = document.getElementById('output').value;
+  if (!outputText.trim()) return;
+  await navigator.clipboard.writeText(stripFormatting(outputText));
   copyBtn.textContent = 'COPIED';
   setTimeout(() => copyBtn.textContent = 'COPY', 1500);
 });
