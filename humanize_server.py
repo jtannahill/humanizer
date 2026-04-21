@@ -888,7 +888,7 @@ copyBtn.addEventListener('click', async () => {
 
 // --- Export .docx ---
 exportBtn.addEventListener('click', async () => {
-  const text = outputEl.value.trim();
+  const text = document.getElementById('output').value.trim();
   if (!text) return;
   exportBtn.disabled = true;
   exportBtn.textContent = 'EXPORTING...';
