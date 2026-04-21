@@ -26,86 +26,82 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Humaniza</title>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --ink: #1a1610;
-    --paper: #f4f0e8;
-    --paper-dark: #e8e2d4;
-    --rule: #c8bfa8;
-    --red: #c0392b;
-    --red-hover: #a93226;
-    --muted: #7a6e5e;
-    --mono: 'Courier Prime', 'Courier New', monospace;
-    --display: 'Bebas Neue', sans-serif;
+    --ink: #1a1a1a;
+    --body-bg: #ffffff;
+    --panel-bg: #fafafa;
+    --rule: #e5e5e5;
+    --rule-dark: #cccccc;
+    --red: #e01a1a;
+    --red-hover: #c01515;
+    --muted: #666666;
+    --sans: 'Inter', -apple-system, sans-serif;
+    --header-bg: #1a1a1a;
   }
 
   body {
-    background: var(--paper);
+    background: var(--body-bg);
     color: var(--ink);
-    font-family: var(--mono);
+    font-family: var(--sans);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
 
-  /* noise texture overlay */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 100;
-    opacity: 0.6;
-  }
-
   header {
-    border-bottom: 3px double var(--ink);
-    padding: 18px 32px 14px;
+    background: var(--header-bg);
+    border-bottom: 2px solid var(--red);
+    padding: 0 32px;
+    height: 52px;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 20px;
+    flex-shrink: 0;
   }
 
   .logo {
-    font-family: var(--display);
-    font-size: 2.4rem;
-    letter-spacing: 0.06em;
-    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 900;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+    text-transform: uppercase;
     line-height: 1;
   }
 
   .tagline {
-    font-size: 0.72rem;
-    color: var(--muted);
-    letter-spacing: 0.12em;
+    font-size: 0.68rem;
+    color: #888888;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    border-left: 1px solid var(--rule);
+    border-left: 1px solid #333333;
     padding-left: 16px;
     line-height: 1.4;
+    font-weight: 400;
   }
 
   .model-controls {
     margin-left: auto;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
   }
 
   .model-controls select,
   .model-controls button {
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 0.62rem;
-    letter-spacing: 0.12em;
+    font-weight: 500;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     background: transparent;
-    color: var(--rule);
-    border: 1px solid var(--rule);
-    padding: 3px 10px;
-    border-radius: 2px;
+    color: #888888;
+    border: 1px solid #333333;
+    padding: 4px 10px;
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
@@ -115,18 +111,18 @@ HTML = r"""<!DOCTYPE html>
 
   .model-controls select:hover,
   .model-controls button:hover {
-    color: var(--ink);
-    border-color: var(--ink);
+    color: #ffffff;
+    border-color: #666666;
   }
 
   .model-controls select option {
-    background: var(--paper-dark);
-    color: var(--ink);
+    background: #1a1a1a;
+    color: #ffffff;
   }
 
   #pass-toggle.active {
-    color: var(--ink);
-    border-color: var(--ink);
+    color: var(--red);
+    border-color: var(--red);
   }
 
   main {
@@ -139,14 +135,16 @@ HTML = r"""<!DOCTYPE html>
 
   .col-header {
     border-bottom: 1px solid var(--rule);
-    padding: 10px 24px;
-    font-size: 0.65rem;
-    letter-spacing: 0.2em;
+    padding: 9px 24px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--muted);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    background: var(--body-bg);
   }
 
   .col-header:first-child {
@@ -155,7 +153,8 @@ HTML = r"""<!DOCTYPE html>
 
   .word-count {
     font-size: 0.62rem;
-    color: var(--rule);
+    font-weight: 400;
+    color: var(--rule-dark);
     font-variant-numeric: tabular-nums;
   }
 
@@ -169,7 +168,7 @@ HTML = r"""<!DOCTYPE html>
   }
 
   .pane.drag-over {
-    background: rgba(192, 57, 43, 0.04);
+    background: rgba(224, 26, 26, 0.03);
     outline: 2px dashed var(--red);
     outline-offset: -8px;
   }
@@ -183,8 +182,9 @@ HTML = r"""<!DOCTYPE html>
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.15s;
-    font-size: 0.72rem;
-    letter-spacing: 0.18em;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--red);
   }
@@ -200,26 +200,23 @@ HTML = r"""<!DOCTYPE html>
     border: none;
     outline: none;
     resize: none;
-    font-family: var(--mono);
-    font-size: 0.88rem;
-    line-height: 1.75;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    line-height: 1.7;
     color: var(--ink);
-    padding: 24px;
+    padding: 24px 28px;
     caret-color: var(--red);
+    font-weight: 400;
   }
 
   textarea::placeholder {
-    color: var(--rule);
-    font-style: italic;
+    color: #cccccc;
+    font-style: normal;
+    font-weight: 400;
   }
 
-  #output {
-    background: transparent;
-  }
-
-  #output.streaming {
-    color: var(--ink);
-  }
+  #output { background: transparent; }
+  #output.streaming { color: var(--ink); }
 
   /* diff overlay */
   #diff-view {
@@ -227,12 +224,12 @@ HTML = r"""<!DOCTYPE html>
     position: absolute;
     inset: 0;
     overflow-y: auto;
-    padding: 24px;
-    font-family: var(--mono);
-    font-size: 0.88rem;
-    line-height: 1.75;
+    padding: 24px 28px;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    line-height: 1.7;
     color: var(--ink);
-    background: var(--paper);
+    background: var(--body-bg);
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -245,12 +242,12 @@ HTML = r"""<!DOCTYPE html>
     position: absolute;
     inset: 0;
     overflow-y: auto;
-    padding: 24px;
-    font-family: var(--mono);
-    font-size: 0.88rem;
-    line-height: 1.75;
+    padding: 24px 28px;
+    font-family: var(--sans);
+    font-size: 0.875rem;
+    line-height: 1.7;
     color: var(--ink);
-    background: var(--paper);
+    background: var(--body-bg);
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -258,34 +255,30 @@ HTML = r"""<!DOCTYPE html>
   #highlight-view.active { display: block; }
 
   mark.sent-ai {
-    background: rgba(192,57,43,0.18);
+    background: rgba(224,26,26,0.1);
     color: var(--ink);
-    border-radius: 2px;
     padding: 0 1px;
     cursor: pointer;
     border-bottom: 2px solid var(--red);
   }
 
   mark.sent-mixed {
-    background: rgba(176,125,26,0.14);
+    background: rgba(176,125,26,0.1);
     color: var(--ink);
-    border-radius: 2px;
     padding: 0 1px;
     border-bottom: 2px solid #b07d1a;
   }
 
   .diff-add {
-    background: rgba(39,174,96,0.18);
+    background: rgba(39,174,96,0.12);
     color: #1a6636;
-    border-radius: 2px;
     padding: 0 1px;
   }
 
   .diff-del {
-    background: rgba(192,57,43,0.12);
+    background: rgba(224,26,26,0.08);
     color: var(--red);
     text-decoration: line-through;
-    border-radius: 2px;
     padding: 0 1px;
   }
 
@@ -294,99 +287,110 @@ HTML = r"""<!DOCTYPE html>
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--paper-dark);
-    border-top: 2px solid var(--ink);
-    padding: 12px 32px;
+    background: var(--body-bg);
+    border-top: 1px solid var(--rule);
+    padding: 10px 32px;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
     z-index: 10;
   }
 
   #run-btn {
-    font-family: var(--display);
-    font-size: 1rem;
-    letter-spacing: 0.12em;
+    font-family: var(--sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     background: var(--red);
-    color: var(--paper);
+    color: #ffffff;
     border: none;
-    padding: 9px 28px 7px;
+    padding: 9px 24px;
     cursor: pointer;
     transition: background 0.15s;
     outline: none;
   }
 
   #run-btn:hover { background: var(--red-hover); }
-  #run-btn:disabled { background: var(--rule); cursor: not-allowed; }
+  #run-btn:disabled { background: #cccccc; cursor: not-allowed; }
 
   /* detection score badge */
   .score-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.65rem;
-    letter-spacing: 0.14em;
+    gap: 5px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    padding: 3px 10px;
-    border-radius: 2px;
-    font-family: var(--mono);
+    padding: 3px 8px;
+    font-family: var(--sans);
     border: 1px solid currentColor;
   }
 
-  .score-badge.ai    { color: var(--red); background: rgba(192,57,43,0.08); }
-  .score-badge.mixed { color: #b07d1a;    background: rgba(176,125,26,0.08); }
-  .score-badge.human { color: #27ae60;    background: rgba(39,174,96,0.08); }
+  .score-badge.ai    { color: var(--red); background: rgba(224,26,26,0.06); }
+  .score-badge.mixed { color: #b07d1a;    background: rgba(176,125,26,0.06); }
+  .score-badge.human { color: #27ae60;    background: rgba(39,174,96,0.06); }
   .score-badge.scanning { color: var(--muted); background: transparent; border-style: dashed; }
 
-  #copy-btn, #export-btn {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
+  #copy-btn, #export-btn, #diff-btn, #highlight-btn, #scan-btn {
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     background: transparent;
     color: var(--muted);
     border: 1px solid var(--rule);
-    padding: 7px 16px;
+    padding: 7px 14px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.12s;
   }
 
-  #copy-btn:hover, #export-btn:hover { border-color: var(--ink); color: var(--ink); }
-  #copy-btn:disabled, #export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  #copy-btn:hover, #export-btn:hover, #diff-btn:hover, #highlight-btn:hover, #scan-btn:hover {
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+
+  #copy-btn:disabled, #export-btn:disabled, #diff-btn:disabled,
+  #highlight-btn:disabled, #scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
   #clear-btn {
-    font-family: var(--mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
+    font-family: var(--sans);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     background: transparent;
-    color: var(--muted);
+    color: #bbbbbb;
     border: 1px solid transparent;
-    padding: 7px 16px;
+    padding: 7px 14px;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.12s;
   }
 
-  #clear-btn:hover { border-color: var(--rule); }
+  #clear-btn:hover { border-color: var(--rule); color: var(--muted); }
 
   /* context menu */
   #ctx-menu {
     position: fixed;
-    background: var(--paper-dark);
-    border: 1px solid var(--ink);
+    background: var(--body-bg);
+    border: 1px solid var(--rule-dark);
     padding: 4px 0;
     z-index: 200;
     display: none;
-    min-width: 180px;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
   }
 
   #ctx-menu button {
     display: block;
     width: 100%;
     text-align: left;
-    font-family: var(--mono);
+    font-family: var(--sans);
     font-size: 0.72rem;
-    letter-spacing: 0.1em;
+    font-weight: 500;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     background: transparent;
     border: none;
@@ -396,7 +400,7 @@ HTML = r"""<!DOCTYPE html>
     transition: background 0.1s;
   }
 
-  #ctx-menu button:hover { background: var(--rule); }
+  #ctx-menu button:hover { background: #f5f5f5; }
 
   .delta-up   { color: #27ae60; }
   .delta-down { color: var(--red); }
@@ -404,16 +408,16 @@ HTML = r"""<!DOCTYPE html>
 
   #status {
     margin-left: auto;
-    font-size: 0.68rem;
-    letter-spacing: 0.1em;
+    font-size: 0.65rem;
+    font-weight: 400;
+    letter-spacing: 0.06em;
     color: var(--muted);
-    font-style: italic;
   }
 
   .cursor-blink {
     display: inline-block;
-    width: 0.5em;
-    height: 1em;
+    width: 2px;
+    height: 0.9em;
     background: var(--red);
     animation: blink 0.8s step-end infinite;
     vertical-align: text-bottom;
@@ -424,28 +428,13 @@ HTML = r"""<!DOCTYPE html>
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
   }
-
-  /* rule lines in textarea panes */
-  .pane::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-image: repeating-linear-gradient(
-      transparent,
-      transparent calc(1.75em * 0.88rem / 1rem + 24px - 1px),
-      rgba(200,191,168,0.18) calc(1.75em * 0.88rem / 1rem + 24px)
-    );
-    background-size: 100% calc(1.75 * 0.88rem);
-    background-position: 0 24px;
-    pointer-events: none;
-  }
 </style>
 </head>
 <body>
 
 <header>
   <div class="logo">Humaniza</div>
-  <div class="tagline">strip AI fingerprints<br>from your prose</div>
+  <div class="tagline">AI fingerprint removal</div>
   <div class="model-controls">
     <select id="model-select">
       <option value="claude-opus-4-7" selected>Opus 4.7</option>
