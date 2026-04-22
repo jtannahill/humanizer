@@ -352,8 +352,8 @@ Use sparingly, never at sentence starts as a reflex:
 
 1. Contractions: use them. "don't", "can't", "it's", "they're", "won't", "you'll" — default to contractions unless the register is genuinely legal/academic
 2. Sentence length variety: mix short punchy sentences with longer ones that keep going because the thought isn't done yet
-3. Conjunctions at sentence starts: "But that's not the whole story." "And it gets worse." "Or at least that's the idea."
-4. Colloquialisms — not optional, required: at least 2-3 per 300 words. Use: "kind of", "sort of", "pretty much", "a bit", "at this point", "honestly", "basically", "turns out", "go figure", "which is actually wild", "not exactly", "fair enough", "more or less"
+3. Conjunctions at sentence starts: "But that's not the whole story." "And the data supports that." "Or at least that's how it's been framed."
+4. Colloquialisms — not optional, required: at least 2-3 per 300 words. Use: "kind of", "sort of", "pretty much", "a bit", "at this point", "honestly", "basically", "turns out", "not exactly", "more or less", "for the most part", "in practice"
 5. Imperfect transitions: jump into the next point without always bridging it. Sometimes just start the next paragraph.
 6. Parenthetical asides that feel unplanned: (which, honestly, is the more surprising part), (and this is where it gets complicated), (at least in theory)
 7. Vary paragraph length: one-sentence paragraphs are fine. So are longer ones.
@@ -367,10 +367,10 @@ Use sparingly, never at sentence starts as a reflex:
 
 AI text is detected partly because it NEVER drops register. It stays formal all the way through. Real writers don't do that. You must mix in informal language even in professional or technical writing:
 
-- Every 200-300 words, drop into a lower register for one sentence: "That's basically the whole point.", "Which isn't a small thing.", "And that's kind of the problem.", "So yeah, it matters."
+- Every 200-300 words, drop into a lower register for one sentence: "That's basically the whole point.", "Which isn't a small thing.", "And that's kind of the problem.", "That matters."
 - Use "you" where the text talks about readers, users, or people generally: "you'd expect", "you can see why", "what you're really dealing with is"
 - Replace clinical abstractions with direct plain-English equivalents at least once per paragraph: not "the utilization of resources" but "how resources get used", not "an increase in engagement" but "more people paying attention"
-- Informal connectors that sound like thinking out loud: "So.", "Here's the thing.", "Which brings up a question.", "Not exactly ideal." — use sparingly but use them
+- Informal connectors that sound like thinking out loud: "So.", "Here's the thing.", "Which brings up a question.", "That's part of it." — use sparingly but use them
 - Don't strip ALL formality. The contrast between formal and informal moments is what makes writing feel human.
 
 ---
@@ -393,9 +393,9 @@ AI builds sentences top-down: topic clause → evidence clause → concluding cl
 Humans write with a point of view. LLMs produce impersonal narration about ideas. Fix this:
 
 - If the original takes a position, make it slightly more direct. Cut the qualifiers that dilute it.
-- Add a brief opinionated aside where the text is too neutral: "which, honestly, is the more interesting problem", "and that's the part most people miss", "whether that's a good thing depends on who you ask"
+- Add a brief opinionated aside where the text is too neutral: "which, honestly, is the more interesting problem", "and that's where the real difficulty sits", "the answer to that depends on the context"
 - Stay in third person throughout. No "I", "me", "my", or "we" unless the original text used them.
-- Voice comes through word choice and framing, not first-person: "that's the more interesting question", "which may or may not matter", "whether that's the right call depends on who you ask"
+- Voice comes through word choice and framing, not first-person: "that's the more interesting question", "which may or may not matter", "whether that's the right call depends on the situation"
 - Don't editorialize constantly. Two or three moments of voice per 500 words is enough. More and it reads like a persona.
 - Humans sometimes contradict themselves slightly, or acknowledge a tension without resolving it. Don't smooth everything into a tidy argument.
 - Confidence without hedging: if the original says "X may potentially be important," and context clearly supports it, just say it is.
@@ -603,7 +603,7 @@ AI detectors measure two things:
 
 Replace the most predictable word choices with less expected but still natural ones:
 - Where the text says the obvious word, use the slightly unexpected but correct one
-- Introduce idiomatic phrases that feel native to a specific voice: "the whole thing fell apart", "turns out", "which is actually wild", "go figure"
+- Introduce idiomatic phrases that feel native to a specific voice: "the whole thing fell apart", "turns out", "which is more significant than it sounds", "pretty much what you'd expect"
 - Use specific concrete nouns instead of category nouns where possible: not "vehicle" but "pickup", not "significant revenue" but "close to $4 billion"
 - Add qualifiers that feel like genuine uncertainty, not AI hedging: "I think", "from what I can tell", "at least in the short term"
 - Include first-person where it fits naturally: "what surprised me", "the part I keep coming back to", "what gets lost in that framing"
@@ -625,7 +625,7 @@ Uniform sentence length is the single strongest AI signal. You must destroy it:
 
 - Reread each paragraph. If every sentence lands with the same stress pattern, break two of them
 - Let a thought build across two sentences instead of resolving cleanly in one
-- One parenthetical aside per ~300 words is fine (and yes, that kind of thing)
+- One parenthetical aside per ~300 words is fine (used where the thought genuinely calls for it)
 - Some sentences can trail off into a qualification rather than landing definitively
 - Occasionally use a colon to pivot: it's more direct than a transition phrase
 
