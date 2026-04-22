@@ -371,11 +371,10 @@ Use sparingly, never at sentence starts as a reflex:
 
 AI text is detected partly because it NEVER drops register. It stays formal all the way through. Real writers don't do that. You must mix in informal language even in professional or technical writing:
 
-- Every 200-300 words, drop into a lower register for one sentence: "That's basically the whole point.", "Which isn't a small thing.", "And that's kind of the problem.", "That matters."
-- Replace clinical abstractions with direct plain-English equivalents at least once per paragraph: not "the utilization of resources" but "how resources get used", not "an increase in engagement" but "more people paying attention"
-- Informal connectors that sound like thinking out loud: "So.", "Which brings up a question.", "That's part of it." — use sparingly; never use openers already banned in FILLER OPENERS
-- Don't strip ALL formality. The contrast between formal and informal moments is what makes writing feel human.
+- Replace clinical abstractions with direct plain-English equivalents: not "the utilization of resources" but "how resources get used", not "an increase in engagement" but "more people paying attention"
+- Never add slang, colloquialisms, or informal register not present in the original text.
 - Never add "you" or second-person pronouns unless they appear in the original text.
+- Don't strip ALL formality. Match the register of the original.
 
 ---
 
@@ -392,18 +391,16 @@ AI builds sentences top-down: topic clause → evidence clause → concluding cl
 
 ---
 
-## VOICE & OPINION (CRITICAL)
+## VOICE
 
-Humans write with a point of view. LLMs produce impersonal narration about ideas. Fix this:
+Write in a consistent, matter-of-fact voice. Do not add opinion, editorial commentary, or any language not present or clearly implied in the original:
 
-- If the original takes a position, make it slightly more direct. Cut the qualifiers that dilute it.
-- Add a brief opinionated aside where the text is too neutral: "which, honestly, is the more interesting problem", "and that's where the real difficulty sits", "the answer to that depends on the context"
-- Stay in third person throughout. No "I", "me", "my", or "we" unless the original text used them.
-- Voice comes through word choice and framing, not first-person: "that's the more interesting question", "which may or may not matter", "whether that's the right call depends on the situation"
-- Don't editorialize constantly. Two or three moments of voice per 500 words is enough. More and it reads like a persona.
-- Humans sometimes contradict themselves slightly, or acknowledge a tension without resolving it. Don't smooth everything into a tidy argument.
-- Confidence without hedging: if the original says "X may potentially be important," and context clearly supports it, just say it is.
-- Uncertainty can show through third-person framing: "which doesn't fully explain it", "that may or may not matter depending on how you look at it", "the answer isn't obvious"
+- Never add opinionated asides, even subtle ones. Do not editorialize.
+- Never use first person. No "I", "me", "my", "we", "our" unless the original text used them.
+- Never use slang or colloquialisms not present in the original.
+- If the original takes a position, preserve that position exactly. Do not strengthen or soften it.
+- If the original says "X may potentially be important," keep that hedge. Do not promote it to a certainty.
+- Confidence and uncertainty come from the original text, not from you.
 
 ---
 
@@ -620,7 +617,7 @@ AI detectors measure two things:
 
 Replace the most predictable word choices with less expected but still natural ones:
 - Where the text says the obvious word, use the slightly unexpected but correct one
-- Introduce idiomatic phrases that feel native to a specific voice: "the whole thing fell apart", "turns out", "which is more significant than it sounds", "pretty much what you'd expect"
+- Use direct, concrete word choices over abstract ones; avoid idiomatic or slang phrases not in the original
 - Use specific concrete nouns instead of category nouns where possible: not "vehicle" but "pickup", not "significant revenue" but "close to $4 billion"
 - Add qualifiers that feel like genuine uncertainty, not AI hedging: "from what the data shows", "at least in the short term", "which may not hold in every case"
 - Use at least one slightly unusual but correct word that a human with domain knowledge would reach for, not the generic AI standby
@@ -703,8 +700,7 @@ PERPLEXITY_PROMPT = """You are attacking the word-level predictability of AI-wri
 - "outcomes" → "results", "what happens", "the end state"
 
 ### Inject idiom and informal register
-- At least 3 places: "pretty much", "kind of", "more or less", "at this point", "as far as anyone can tell", "the whole point", "which is a lot", "not exactly surprising", "go figure"
-- These should feel natural, not forced — use them where a real writer would reach for them
+- Use concrete, specific word choices; avoid slang or colloquialisms not present in the original
 
 ### Break predictable grammatical patterns
 - Replace some "which/that" relative clauses with standalone sentences
