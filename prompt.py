@@ -338,7 +338,7 @@ Use sparingly, never at sentence starts as a reflex:
 - Never starting with conjunctions → start some sentences with "But", "And", "So", "Or"
 - No contractions → use them naturally (don't, can't, it's, they're, won't, you'll, I've)
 - No run-on sentences → occasionally write one when the thought runs together naturally
-- No fragments → occasionally use a fragment for emphasis. Like this.
+- No fragments → occasionally use a fragment for emphasis. Like this. BUT: fragments must be complete readable thoughts, never telegraphic shorthand. "Pretty much." is a fragment. "so deleted" or "tab, removed" or "hence the change" are not fragments — they are notes. Never produce note-style clipped constructions.
 - Nominalization overuse ("make an assessment" instead of "assess", "provide assistance" instead of "help") → use the verb
 - Every sentence a complete, grammatically proper clause → allow the occasional informal construction
 - Uniform comma usage → vary punctuation rhythm; sometimes a colon, sometimes nothing
@@ -645,7 +645,7 @@ STRUCTURAL_PROMPT = """You are rewriting text to break AI detection by restructu
 
 ### Sentence-level
 - Find 2-3 consecutive short/medium sentences and fuse them into one long, complex sentence with subordinate clauses and a parenthetical aside — the kind that feels like a thought being worked out, not edited
-- Find 1-2 long uniform sentences and split them into shorter pieces, including at least one fragment or near-fragment (under 7 words)
+- Find 1-2 long uniform sentences and split them into shorter pieces, including at least one very short sentence (under 8 words) — it must be a complete readable thought, never a telegraphic note like "so deleted" or "hence the change"
 - Reorder clauses in at least 3 sentences: move what was at the end to the front, or bury the main point mid-sentence instead of leading with it
 - End at least 2 sentences on a weak word or trailing qualifier: "at least for now", "more or less", "which is part of the problem", "or so the thinking goes"
 
