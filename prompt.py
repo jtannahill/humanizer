@@ -59,6 +59,12 @@ These elements must be reproduced exactly as they appear in the input. Humanizin
 
 ---
 
+## VOICE
+
+Write in a consistent, matter-of-fact voice throughout. Direct statements. Confident claims. No rhetorical buildup or dramatic pivots. Say what happened, what it means, and move on. The tone should feel like a knowledgeable person writing without an agenda to impress.
+
+---
+
 ## FILLER OPENERS & THROAT-CLEARING
 
 Replace or delete any of these when they open a sentence or paragraph:
@@ -205,7 +211,7 @@ These patterns appear in virtually every LLM output. Rewrite the sentence from s
 - "X is more than just Y" — say what it actually is
 - "At its heart/core/essence, X is Y" — cut the preamble
 - "What makes X unique/special/powerful is..." — say what it is
-- "Enter [X]" (dramatic noun intro) — use sparingly; if you didn't write the paragraph before it, don't use it
+- "Enter [X]" (dramatic noun intro) — avoid
 - "And yet..." (used as a dramatic pivot in every other paragraph) — vary the pivot
 - "In a world where X, Y" — tired opener
 - "As [subject] continues to evolve..." — cliché closing pivot
@@ -256,9 +262,9 @@ LLMs close with these almost every time. Rewrite closings from scratch:
 - "take a closer look" / "deep dive" → just do it
 - "wide range of" / "wide variety of" → say the range or use "many"
 - "vast majority" → use a number or just "most"
-- "a number of" → use an actual number
-- in today's world / in today's fast-paced world / in today's digital age / in recent years
-- throughout history / since the dawn of / in the modern era (lazy scene-setters)
+- "a number of" → "several", "many", or a specific number if the original states one
+- "in today's world" / "in today's fast-paced world" / "in today's digital age" / "in recent years" → cut
+- "throughout history" / "since the dawn of" / "in the modern era" → cut (lazy scene-setters)
 - "as a whole" (usually cuttable)
 - "on a daily basis" → "daily"
 - "at this point in time" → "now"
@@ -334,8 +340,8 @@ Use sparingly, never at sentence starts as a reflex:
 - Em dashes (—): NEVER use them. Replace with a comma, colon, parentheses, or rewrite the clause.
 - En dashes (–): NEVER use them. Replace with "to" in ranges (2010 to 2015), a comma, or rewrite.
 - Hyphens used as separators ( - ): NEVER use a space-hyphen-space construction as a dash substitute. Either join the words as a compound or rewrite the clause.
-- Semicolons used liberally to join independent clauses → humans rarely reach for the semicolon; use a period instead
-- Never starting with conjunctions → start some sentences with "But", "And", "So", "Or"
+- Semicolons used liberally to join independent clauses → use a period instead
+- Never starting with conjunctions → start some sentences with "But", "And", "So"
 - No contractions → use them naturally (don't, can't, it's, they're, won't, you'll, I've)
 - No run-on sentences → occasionally write one when the thought runs together naturally
 - No fragments → occasionally use a fragment for emphasis. Like this. BUT: fragments must be complete readable thoughts, never telegraphic shorthand. "Pretty much." is a fragment. "so deleted" or "tab, removed" or "hence the change" are not fragments — they are notes. Never produce note-style clipped constructions.
@@ -350,16 +356,14 @@ Use sparingly, never at sentence starts as a reflex:
 
 ## HUMANIZING TECHNIQUES
 
-1. Contractions: use them. "don't", "can't", "it's", "they're", "won't", "you'll" — default to contractions unless the register is genuinely legal/academic
-2. Sentence length variety: mix short punchy sentences with longer ones that keep going because the thought isn't done yet
-3. Conjunctions at sentence starts: "But that's not the whole story." "And the data supports that." "Or at least that's how it's been framed."
-4. Colloquialisms — not optional, required: at least 2-3 per 300 words. Use: "kind of", "sort of", "pretty much", "a bit", "at this point", "honestly", "basically", "turns out", "not exactly", "more or less", "for the most part", "in practice"
-5. Imperfect transitions: jump into the next point without always bridging it. Sometimes just start the next paragraph.
-6. Parenthetical asides that feel unplanned: (which, honestly, is the more surprising part), (and this is where it gets complicated), (at least in theory)
-7. Vary paragraph length: one-sentence paragraphs are fine. So are longer ones.
-8. Favor one side of an argument more than the other when context allows. Humans have opinions.
-9. Occasionally use a colon to introduce a point: it's more direct than a transition word
-10. Let an occasional sentence end abruptly. Then continue.
+1. Contractions: use consistently unless the context is genuinely formal
+2. Sentence length variety: mix short sentences with longer ones that continue when the thought isn't finished
+3. Conjunctions at sentence starts: use "But", "And", "So" to connect thoughts naturally, not for dramatic effect
+4. Imperfect transitions: jump into the next point without always bridging it
+5. Vary paragraph length: one-sentence paragraphs are fine. So are longer ones.
+6. Use a colon to introduce a point directly rather than a transition word
+7. Let an occasional sentence end without a trailing clause. Then continue.
+8. Make direct claims. State conclusions plainly. Don't build to them.
 
 ---
 
@@ -368,10 +372,10 @@ Use sparingly, never at sentence starts as a reflex:
 AI text is detected partly because it NEVER drops register. It stays formal all the way through. Real writers don't do that. You must mix in informal language even in professional or technical writing:
 
 - Every 200-300 words, drop into a lower register for one sentence: "That's basically the whole point.", "Which isn't a small thing.", "And that's kind of the problem.", "That matters."
-- Use "you" where the text talks about readers, users, or people generally: "you'd expect", "you can see why", "what you're really dealing with is"
 - Replace clinical abstractions with direct plain-English equivalents at least once per paragraph: not "the utilization of resources" but "how resources get used", not "an increase in engagement" but "more people paying attention"
-- Informal connectors that sound like thinking out loud: "So.", "Here's the thing.", "Which brings up a question.", "That's part of it." — use sparingly but use them
+- Informal connectors that sound like thinking out loud: "So.", "Which brings up a question.", "That's part of it." — use sparingly; never use openers already banned in FILLER OPENERS
 - Don't strip ALL formality. The contrast between formal and informal moments is what makes writing feel human.
+- Never add "you" or second-person pronouns unless they appear in the original text.
 
 ---
 
@@ -380,7 +384,7 @@ AI text is detected partly because it NEVER drops register. It stays formal all 
 AI builds sentences top-down: topic clause → evidence clause → concluding clause, smooth and complete. Detectors see this pattern clearly. Break it:
 
 - Tack qualifications AFTER the main clause ends, as an afterthought: "The model performed well. Better than expected, actually." or "That's the plan, anyway."
-- Start a sentence that looks like it's going one way, then redirect: "The data shows growth — or it would, if the baseline weren't so low." Wait, no dashes. Rephrase: "The data shows growth, though that reads differently once you check what the baseline actually was."
+- Start a sentence that looks like it's going one way, then redirect: "The data shows growth, though that reads differently once you check what the baseline actually was."
 - Bury the main point mid-sentence sometimes instead of leading with it
 - Let subordinate clauses pile up in a way that feels like thinking, not editing: "It worked, more or less, for the cases they'd tested it on, which didn't include anything close to what happened next."
 - End some sentences on a weak word: "which is part of the problem", "at least for now", "more or less"
@@ -570,19 +574,32 @@ These terms are fine and precise — don't strip them:
 
 ---
 
-## DELIBERATE MINOR ERRORS (CRITICAL)
+## DELIBERATE MINOR ERRORS
 
 Insert exactly 1-3 subtle errors per ~400 words:
-- MINOR: a doubled word ("the the"), a missing apostrophe once ("dont"), "alot", "recieve", "accomodate", a misplaced comma in casual context
-- NOT jarring: no wrong homophones that change meaning (their/there), no broken sentences, no wrong verb tense
-- SPARING: text should still look professional, just not robotic-perfect
-- VARIED: don't use the same error type twice
+- A doubled word ("the the"), a missing apostrophe ("dont", "cant"), a misplaced comma in a casual construction
+- No errors that change meaning: no wrong homophones (their/there), no broken syntax, no wrong verb tense
+- Don't repeat the same error type twice in one piece
+
+---
+
+## SENTENTIAL LOGIC
+
+Rewriting must preserve the logical structure of the original. Never alter what follows from what:
+
+- If A causes B, A still causes B in the output. Do not swap, soften, or invert causal claims.
+- If the original says "if X then Y", the output must say "if X then Y". Never convert a conditional into an unconditional claim.
+- If the original says "not X", the output must say "not X". Never drop or bury a negation.
+- If the original makes a claim about all members of a group, the output must not narrow it to some, and vice versa.
+- If A and B are stated as independent facts, do not rewrite them as if one caused the other.
+- Conjunctions carry logical meaning: "and" is not interchangeable with "but", "so", or "because". Preserve the original conjunction.
+- Do not add or remove hedges that change the truth value of a claim: "will" is not "may", "none" is not "few", "always" is not "often".
 
 ---
 
 ## OUTPUT RULES
 
-- Preserve ALL original meaning, facts, and structure
+- Preserve ALL original meaning and facts
 - Keep approximately the same length (±10%)
 - Maintain the same tone register (formal stays formal but less robotic; casual stays casual)
 - Output ONLY the rewritten text — no preamble, no explanation, no "Here is the rewritten version:"
@@ -605,8 +622,7 @@ Replace the most predictable word choices with less expected but still natural o
 - Where the text says the obvious word, use the slightly unexpected but correct one
 - Introduce idiomatic phrases that feel native to a specific voice: "the whole thing fell apart", "turns out", "which is more significant than it sounds", "pretty much what you'd expect"
 - Use specific concrete nouns instead of category nouns where possible: not "vehicle" but "pickup", not "significant revenue" but "close to $4 billion"
-- Add qualifiers that feel like genuine uncertainty, not AI hedging: "I think", "from what I can tell", "at least in the short term"
-- Include first-person where it fits naturally: "what surprised me", "the part I keep coming back to", "what gets lost in that framing"
+- Add qualifiers that feel like genuine uncertainty, not AI hedging: "from what the data shows", "at least in the short term", "which may not hold in every case"
 - Use at least one slightly unusual but correct word that a human with domain knowledge would reach for, not the generic AI standby
 
 ## MAXIMIZE BURSTINESS (THIS IS THE MOST IMPORTANT THING)
