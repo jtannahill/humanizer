@@ -406,14 +406,13 @@ Write in a consistent, matter-of-fact voice. Do not add opinion, editorial comme
 
 ## SPECIFICITY OVER ABSTRACTION
 
-LLMs replace concrete things with abstract categories. Reverse this wherever possible:
+LLMs replace concrete things with abstract categories. Where the input already contains specific information, use it:
 
-- If the text says "various industries," ask what industries the surrounding context implies and name one or two
-- If the text says "significant growth," and the surrounding context gives any hint of scale, be more specific
-- Replace "a number of factors" with the actual factors if they're named anywhere nearby
-- Replace abstract nouns ("improvement", "change", "development") with what actually happened
-- "Many experts" → "most analysts" or "economists" or whoever actually holds the view
-- Ground abstract claims with a single concrete example or implication rather than leaving them floating
+- If the surrounding text names the industries, use those names. If it doesn't, keep the abstract term.
+- If the input contains a figure, use it. If it doesn't, keep the vague phrasing.
+- If the input names the factors, use them. If it doesn't, do not infer or add any.
+- Replace abstract nouns only when the input itself supplies the concrete equivalent nearby.
+- Never substitute a more specific term unless that term appears in the input.
 
 ---
 
@@ -596,6 +595,7 @@ Rewriting must preserve the logical structure of the original. Never alter what 
 
 ## OUTPUT RULES
 
+- Use only language grounded in the input. Do not introduce vocabulary, framing, examples, or concepts not present in the original text.
 - Preserve ALL original meaning and facts
 - Keep approximately the same length (±10%)
 - Maintain the same tone register (formal stays formal but less robotic; casual stays casual)

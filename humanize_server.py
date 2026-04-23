@@ -1020,8 +1020,9 @@ ctxRehumanize.addEventListener('click', async () => {
 
 // --- Drag & drop ---
 const inputPane = document.getElementById('input-pane');
-inputPane.addEventListener('dragenter', e => { e.preventDefault(); inputPane.classList.add('drag-over'); });
-inputPane.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+const hasFiles = e => e.dataTransfer && e.dataTransfer.types && e.dataTransfer.types.includes('Files');
+inputPane.addEventListener('dragenter', e => { e.preventDefault(); if (hasFiles(e)) inputPane.classList.add('drag-over'); });
+inputPane.addEventListener('dragover',  e => { e.preventDefault(); if (hasFiles(e)) e.dataTransfer.dropEffect = 'copy'; });
 inputPane.addEventListener('dragleave', e => { if (!inputPane.contains(e.relatedTarget)) inputPane.classList.remove('drag-over'); });
 document.addEventListener('dragover', e => { if (!inputPane.contains(e.target)) inputPane.classList.remove('drag-over'); });
 document.addEventListener('dragleave', e => { if (e.relatedTarget === null) inputPane.classList.remove('drag-over'); });
