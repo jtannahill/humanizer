@@ -25,7 +25,7 @@ HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Humaniza</title>
+<title>HÜMÄNIẞAHHH</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -433,7 +433,7 @@ HTML = r"""<!DOCTYPE html>
 <body>
 
 <header>
-  <div class="logo">Humaniza</div>
+  <div class="logo">HÜMÄNIẞAHHH</div>
   <div class="tagline">AI fingerprint removal</div>
   <div class="model-controls">
     <select id="model-select">
@@ -1420,6 +1420,6 @@ def humanize():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5757))
-    print(f"Humaniza running at http://localhost:{port}")
+    print(f"HÜMÄNIẞAHHH running at http://localhost:{port}")
     print("Press Ctrl+C to stop.\n")
     app.run(port=port, debug=False)
