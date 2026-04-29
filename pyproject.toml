@@ -1,0 +1,13 @@
+[project]
+name = "humanizer"
+version = "0.1.0"
+description = "Strip AI fingerprints from prose. Flask web UI + CLI, powered by Claude."
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.40.0",
+    "flask>=3.0.0",
+    "python-docx>=1.1.0",
+    "requests>=2.31.0",
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+]

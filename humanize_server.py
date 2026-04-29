@@ -332,6 +332,7 @@ HTML = r"""<!DOCTYPE html>
   .score-badge.mixed { color: #b07d1a;    background: rgba(176,125,26,0.06); }
   .score-badge.human { color: #27ae60;    background: rgba(39,174,96,0.06); }
   .score-badge.scanning { color: var(--muted); background: transparent; border-style: dashed; }
+  .score-badge.local { color: var(--muted); background: transparent; }
 
   #copy-btn, #export-btn, #diff-btn, #highlight-btn, #scan-btn {
     font-family: var(--sans);
@@ -610,14 +611,32 @@ function renderBadge(el, data) {
 async function runScan(text, badgeEl) {
   badgeEl.innerHTML = '<span class="score-badge scanning">scanning…</span>';
   try {
-    const res = await fetch('/detect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
-    });
-    if (!res.ok) { badgeEl.innerHTML = ''; return null; }
-    const data = await res.json();
+    const [gptzeroRes, localRes] = await Promise.all([
+      fetch('/detect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      }),
+      fetch('/local-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      }).catch(() => null)
+    ]);
+    if (!gptzeroRes.ok) { badgeEl.innerHTML = ''; return null; }
+    const data = await gptzeroRes.json();
+    let localBadge = '';
+    if (localRes && localRes.ok) {
+      const local = await localRes.json();
+      if (local && typeof local.perplexity === 'number') {
+        const perp = Math.round(local.perplexity);
+        const burst = local.burstiness.toFixed(1);
+        localBadge = ` <span class="score-badge local" title="GPT-2 perplexity / burstiness — local oracle">p${perp} b${burst}</span>`;
+      }
+    }
+    badgeEl.innerHTML = '';
     renderBadge(badgeEl, data);
+    badgeEl.innerHTML = badgeEl.innerHTML + localBadge;
     return data;
   } catch(e) {
     badgeEl.innerHTML = '';
@@ -1077,6 +1096,31 @@ def detect():
         "subclass":                  subclass_probs,
         "sentences":                 doc.get("sentences", []),
     }
+
+
+@app.route("/local-score", methods=["POST"])
+def local_score():
+    """Local detector. backend='gpt2' (fast) or 'binoculars' (stronger signal)."""
+    from scorer import score as score_text
+    data = request.get_json() or {}
+    text = data.get("text", "").strip()
+    backend = data.get("backend", "gpt2")
+    if not text:
+        return {"error": "no text"}, 400
+    if backend not in {"gpt2", "binoculars"}:
+        return {"error": "backend must be gpt2 or binoculars"}, 400
+    try:
+        result = score_text(text, backend=backend)
+        return {
+            "backend": backend,
+            "perplexity": result.get("perplexity"),
+            "binoculars": result.get("binoculars"),
+            "burstiness": result["burstiness"],
+            "human_score": result["human_score"],
+            "worst_sentences": result["worst_sentences"],
+        }
+    except Exception as e:
+        return {"error": str(e)}, 500
 
 
 @app.route("/export", methods=["POST"])
