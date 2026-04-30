@@ -1146,7 +1146,7 @@ def local_score():
     if backend not in {"gpt2", "binoculars", "fast_detectgpt"}:
         return {"error": "backend must be gpt2, binoculars, or fast_detectgpt"}, 400
     try:
-        result = score_text(text, backend=backend)
+        result = score_text(text, backend=backend)  # with_sentences=False by default
         return {
             "backend": backend,
             "perplexity": result.get("perplexity"),
@@ -1154,7 +1154,6 @@ def local_score():
             "fast_detectgpt": result.get("fast_detectgpt"),
             "burstiness": result["burstiness"],
             "human_score": result["human_score"],
-            "worst_sentences": result["worst_sentences"],
         }
     except Exception as e:
         return {"error": str(e)}, 500

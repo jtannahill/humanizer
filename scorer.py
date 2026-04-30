@@ -90,7 +90,7 @@ def _human_score(perp: float, burst: float) -> float:
     return 0.6 * perp_score + 0.4 * burst_score
 
 
-def score(text: str, top_k_worst: int = 5, backend: str = "gpt2") -> dict:
+def score(text: str, top_k_worst: int = 5, backend: str = "gpt2", with_sentences: bool = False) -> dict:
     """Full local score for a document.
 
     Args:
@@ -98,31 +98,34 @@ def score(text: str, top_k_worst: int = 5, backend: str = "gpt2") -> dict:
                  "binoculars" — two-model Qwen2.5-1.5B pair, stronger signal
                  "fast_detectgpt" — single-model Qwen2.5-1.5B, often beats
                  Binoculars on out-of-distribution text
+        with_sentences: if False (default), skip per-sentence inference.
+                 Per-sentence scoring runs the model once per sentence and
+                 dominates wall-clock time on the Qwen backends. The
+                 doc-level metric and human_score are unaffected.
 
-    All backends return: burstiness, human_score, sentences, worst_sentences.
-    Score field name is backend-specific:
-        gpt2 → "perplexity"
-        binoculars → "binoculars"
-        fast_detectgpt → "fast_detectgpt"
+    All backends return: burstiness, human_score. When with_sentences=True,
+    also returns sentences and worst_sentences.
     """
     if backend == "binoculars":
         from binoculars_scorer import score as bino_score
-        return bino_score(text, top_k_worst=top_k_worst)
+        return bino_score(text, top_k_worst=top_k_worst, with_sentences=with_sentences)
     if backend == "fast_detectgpt":
         from fast_detectgpt_scorer import score as fdg_score
-        return fdg_score(text, top_k_worst=top_k_worst)
+        return fdg_score(text, top_k_worst=top_k_worst, with_sentences=with_sentences)
 
     overall = perplexity(text)
-    sentences = per_sentence_perplexity(text)
     burst = burstiness(text)
-    sorted_sents = sorted(sentences, key=lambda x: x[1])
-    return {
+    result = {
         "perplexity": overall,
         "burstiness": burst,
         "human_score": _human_score(overall, burst),
-        "sentences": [{"sentence": s, "perplexity": p} for s, p in sentences],
-        "worst_sentences": [s for s, _ in sorted_sents[:top_k_worst]],
     }
+    if with_sentences:
+        sentences = per_sentence_perplexity(text)
+        sorted_sents = sorted(sentences, key=lambda x: x[1])
+        result["sentences"] = [{"sentence": s, "perplexity": p} for s, p in sentences]
+        result["worst_sentences"] = [s for s, _ in sorted_sents[:top_k_worst]]
+    return result
 
 
 if __name__ == "__main__":

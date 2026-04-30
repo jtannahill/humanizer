@@ -132,27 +132,32 @@ def _human_score(disc: float, burst: float) -> float:
     return 0.7 * disc_score + 0.3 * burst_score
 
 
-def score(text: str, top_k_worst: int = 5) -> dict:
+def score(text: str, top_k_worst: int = 5, with_sentences: bool = False) -> dict:
     """Full Fast-DetectGPT score for a document.
+
+    Per-sentence scoring runs the model once per sentence and dominates
+    wall-clock time. Default with_sentences=False to keep badge updates fast;
+    pass True only when worst_sentences is actually consumed.
 
     Returns:
         fast_detectgpt: overall discrepancy (higher = AI)
         burstiness: sentence-length variance / mean
         human_score: 0-1 combined estimate (1 = human)
-        sentences: per-sentence discrepancy
-        worst_sentences: highest-scoring (most AI-like) sentences
+        sentences, worst_sentences: only when with_sentences=True
     """
     overall = fast_detectgpt_score(text)
-    sentences = per_sentence_fast_detectgpt(text)
     burst = burstiness(text)
-    sorted_sents = sorted(sentences, key=lambda x: -x[1])  # highest disc first
-    return {
+    result = {
         "fast_detectgpt": overall,
         "burstiness": burst,
         "human_score": _human_score(overall, burst),
-        "sentences": [{"sentence": s, "score": d} for s, d in sentences],
-        "worst_sentences": [s for s, _ in sorted_sents[:top_k_worst]],
     }
+    if with_sentences:
+        sentences = per_sentence_fast_detectgpt(text)
+        sorted_sents = sorted(sentences, key=lambda x: -x[1])  # highest disc first
+        result["sentences"] = [{"sentence": s, "score": d} for s, d in sentences]
+        result["worst_sentences"] = [s for s, _ in sorted_sents[:top_k_worst]]
+    return result
 
 
 if __name__ == "__main__":

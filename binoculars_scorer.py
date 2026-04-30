@@ -129,27 +129,32 @@ def _human_score(bino: float, burst: float) -> float:
     return 0.7 * bino_score + 0.3 * burst_score
 
 
-def score(text: str, top_k_worst: int = 5) -> dict:
+def score(text: str, top_k_worst: int = 5, with_sentences: bool = False) -> dict:
     """Full Binoculars score for a document.
+
+    Per-sentence scoring runs the model pair once per sentence and dominates
+    wall-clock time. Default with_sentences=False to keep badge updates fast;
+    pass True only when worst_sentences is actually consumed.
 
     Returns:
         binoculars: overall Binoculars score (lower = AI)
         burstiness: sentence-length variance / mean
         human_score: 0-1 combined estimate
-        sentences: per-sentence Binoculars
-        worst_sentences: lowest-scoring (most AI-like) sentences
+        sentences, worst_sentences: only when with_sentences=True
     """
     overall = binoculars_score(text)
-    sentences = per_sentence_binoculars(text)
     burst = burstiness(text)
-    sorted_sents = sorted(sentences, key=lambda x: x[1])
-    return {
+    result = {
         "binoculars": overall,
         "burstiness": burst,
         "human_score": _human_score(overall, burst),
-        "sentences": [{"sentence": s, "score": p} for s, p in sentences],
-        "worst_sentences": [s for s, _ in sorted_sents[:top_k_worst]],
     }
+    if with_sentences:
+        sentences = per_sentence_binoculars(text)
+        sorted_sents = sorted(sentences, key=lambda x: x[1])
+        result["sentences"] = [{"sentence": s, "score": p} for s, p in sentences]
+        result["worst_sentences"] = [s for s, _ in sorted_sents[:top_k_worst]]
+    return result
 
 
 if __name__ == "__main__":
