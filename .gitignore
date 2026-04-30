@@ -8,3 +8,4 @@ venv/
 dist/
 start.sh
 .DS_Store
+*.log

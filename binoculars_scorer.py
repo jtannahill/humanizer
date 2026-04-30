@@ -12,20 +12,21 @@ observer perplexity and cross-perplexity that single-model detectors miss.
 
 Lower score = more AI-like. Higher = more human-like.
 
-Default pair: Qwen2.5-0.5B + Qwen2.5-0.5B-Instruct (~1GB total).
+Default pair: Qwen2.5-1.5B + Qwen2.5-1.5B-Instruct (~3GB total).
 Original paper used Falcon-7B + Falcon-7B-Instruct (~14GB).
 """
 
 import re
 from typing import List, Tuple
 
-DEFAULT_OBSERVER = "Qwen/Qwen2.5-0.5B"
-DEFAULT_PERFORMER = "Qwen/Qwen2.5-0.5B-Instruct"
+DEFAULT_OBSERVER = "Qwen/Qwen2.5-1.5B"
+DEFAULT_PERFORMER = "Qwen/Qwen2.5-1.5B-Instruct"
 
-# Rough thresholds for the Qwen pair, derived informally — tune via calibration.
-# (Falcon paper thresholds were ~0.9015. Smaller models cluster at different points.)
-AI_THRESHOLD = 0.88
-HUMAN_THRESHOLD = 0.96
+# Rough thresholds for the Qwen 1.5B pair — empirical starting points from a
+# short-text smoke test (AI ≈ 0.83, human ≈ 0.85). Recalibrate on a real corpus
+# of known-AI vs known-human samples before trusting the human_score numerically.
+AI_THRESHOLD = 0.82
+HUMAN_THRESHOLD = 0.88
 
 _observer = None
 _performer = None

@@ -94,17 +94,23 @@ def score(text: str, top_k_worst: int = 5, backend: str = "gpt2") -> dict:
     """Full local score for a document.
 
     Args:
-        backend: "gpt2" (fast, single-model perplexity) or "binoculars"
-                 (slower, two-model — much stronger signal)
+        backend: "gpt2" — fast, single-model perplexity (default)
+                 "binoculars" — two-model Qwen2.5-1.5B pair, stronger signal
+                 "fast_detectgpt" — single-model Qwen2.5-1.5B, often beats
+                 Binoculars on out-of-distribution text
 
-    Returns (gpt2 backend):
-        perplexity, burstiness, human_score, sentences, worst_sentences
-    Returns (binoculars backend):
-        binoculars, burstiness, human_score, sentences, worst_sentences
+    All backends return: burstiness, human_score, sentences, worst_sentences.
+    Score field name is backend-specific:
+        gpt2 → "perplexity"
+        binoculars → "binoculars"
+        fast_detectgpt → "fast_detectgpt"
     """
     if backend == "binoculars":
         from binoculars_scorer import score as bino_score
         return bino_score(text, top_k_worst=top_k_worst)
+    if backend == "fast_detectgpt":
+        from fast_detectgpt_scorer import score as fdg_score
+        return fdg_score(text, top_k_worst=top_k_worst)
 
     overall = perplexity(text)
     sentences = per_sentence_perplexity(text)
