@@ -120,7 +120,8 @@ HTML = r"""<!DOCTYPE html>
     color: #ffffff;
   }
 
-  #pass-toggle.active {
+  #pass-toggle.active,
+  #nuclear-toggle.active {
     color: var(--red);
     border-color: var(--red);
   }
@@ -526,12 +527,13 @@ let lastSentences   = [];
 let loopCount       = 0;
 let sourceFilename  = null;
 let twoPass         = true;
-let nuclearEnabled  = false;
+let nuclearEnabled  = true;
 
 const MAX_LOOPS   = 10;
 const SENT_THRESH = 0.50;
 let lastAiScore   = 1.0;
 let bestAiScore   = 1.0;
+let bestGptzeroAi = 1.0;
 let bestOutput    = '';
 
 passToggle.addEventListener('click', () => {
@@ -540,6 +542,7 @@ passToggle.addEventListener('click', () => {
   passToggle.classList.toggle('active', twoPass);
 });
 
+nuclearToggle.classList.toggle('active', nuclearEnabled);
 nuclearToggle.addEventListener('click', () => {
   nuclearEnabled = !nuclearEnabled;
   nuclearToggle.classList.toggle('active', nuclearEnabled);
@@ -613,7 +616,7 @@ function renderBadge(el, data) {
   el.innerHTML = `<span class="score-badge ${cls}">${label}</span>`;
 }
 
-async function runScan(text, badgeEl) {
+async function runScan(text, badgeEl, includeLocal = true) {
   badgeEl.innerHTML = '<span class="score-badge scanning">scanning…</span>';
   try {
     const [gptzeroRes, localRes] = await Promise.all([
@@ -622,11 +625,11 @@ async function runScan(text, badgeEl) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text })
       }),
-      fetch('/local-score', {
+      includeLocal ? fetch('/local-score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, backend: document.getElementById('detector-select').value })
-      }).catch(() => null)
+      }).catch(() => null) : Promise.resolve(null)
     ]);
     if (!gptzeroRes.ok) { badgeEl.innerHTML = ''; return null; }
     const data = await gptzeroRes.json();
@@ -634,6 +637,7 @@ async function runScan(text, badgeEl) {
     if (localRes && localRes.ok) {
       const local = await localRes.json();
       if (local && typeof local.human_score === 'number') {
+        data._local = local;
         const burst = local.burstiness.toFixed(1);
         const hs = Math.round(local.human_score * 100);
         let metric = '';
@@ -704,9 +708,9 @@ async function rehumanizeLoop(scanData) {
   loopCount++;
   const scorePct = Math.round((1 - lastAiScore) * 100);
   const strategies = nuclearEnabled
-    ? ['sentence rewrite', 'perplexity injection', 'structural rewrite', 'nuclear rewrite']
+    ? ['nuclear rewrite', 'sentence rewrite', 'perplexity injection', 'structural rewrite']
     : ['sentence rewrite', 'perplexity injection', 'structural rewrite'];
-  const strategy = loopCount % strategies.length;
+  const strategy = (loopCount - 1) % strategies.length;
   const strategyLabel = strategies[strategy];
 
   exitHighlight();
@@ -775,7 +779,7 @@ async function autoScanOutput() {
   status.textContent = 'scanning...';
   outScore.innerHTML = '<span class="score-badge scanning">scanning…</span>';
 
-  const data = await runScan(text, outScore);
+  const data = await runScan(text, outScore, true);
   if (!data) { status.textContent = 'done'; enableOutputButtons(); return; }
 
   lastSentences = data.sentences || [];
@@ -784,11 +788,19 @@ async function autoScanOutput() {
     highlightBtn.disabled = false;
   }
 
-  const currentScore = data.completely_generated_prob;
+  // Combine oracles: GPTZero is primary, local detector is a guard rail.
+  // 70% GPTZero + 30% local (1 - human_score). Fall back to GPTZero alone
+  // if local is missing.
+  const gptzeroAi = data.completely_generated_prob;
+  const localAi = (data._local && typeof data._local.human_score === 'number')
+    ? (1 - data._local.human_score)
+    : null;
+  const currentScore = (localAi !== null) ? (0.7 * gptzeroAi + 0.3 * localAi) : gptzeroAi;
 
-  // Track best output seen so far
+  // Track best output seen so far (by combined score, but remember GPTZero too)
   if (currentScore < bestAiScore) {
     bestAiScore = currentScore;
+    bestGptzeroAi = gptzeroAi;
     bestOutput  = outputEl.value;
   }
 
@@ -803,9 +815,9 @@ async function autoScanOutput() {
       outputEl.value = bestOutput;
       updateOutCount();
     }
-    const humanPct = Math.round((1 - bestAiScore) * 100);
-    status.textContent = `done — best: ${humanPct}% human`;
-    renderBadge(outScore, { predicted_class: bestAiScore > 0.5 ? 'ai' : bestAiScore > 0.2 ? 'mixed' : 'human', completely_generated_prob: bestAiScore });
+    const humanPct = Math.round((1 - bestGptzeroAi) * 100);
+    status.textContent = `done — best: ${humanPct}% human (GPTZero)`;
+    renderBadge(outScore, { predicted_class: bestGptzeroAi > 0.5 ? 'ai' : bestGptzeroAi > 0.2 ? 'mixed' : 'human', completely_generated_prob: bestGptzeroAi });
     enableOutputButtons();
   }
 }
@@ -1001,6 +1013,7 @@ runBtn.addEventListener('click', async () => {
   loopCount = 0;
   lastAiScore = 1.0;
   bestAiScore = 1.0;
+  bestGptzeroAi = 1.0;
   bestOutput  = '';
   highlightBtn.disabled = true;
   status.textContent = twoPass ? 'pass 1 of 2 (rewrite)...' : 'processing...';
@@ -1244,6 +1257,7 @@ Sentences to rewrite:
     response = client.messages.create(
         model=model,
         max_tokens=4000,
+        temperature=1.0,
         messages=[{"role": "user", "content": prompt}]
     )
 
@@ -1346,6 +1360,7 @@ def structural_rewrite():
     response = client.messages.create(
         model=model,
         max_tokens=16000,
+        temperature=1.0,
         system=[{"type": "text", "text": STRUCTURAL_PROMPT, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
         messages=[{"role": "user", "content": f"Restructure this text to break AI detection patterns. Preserve all meaning, numbers, and facts exactly.\n\n<text>\n{full_text}\n</text>"}]
     )
@@ -1375,6 +1390,7 @@ def perplexity_inject():
     response = client.messages.create(
         model=model,
         max_tokens=4000,
+        temperature=1.0,
         system=[{"type": "text", "text": PERPLEXITY_PROMPT, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
         messages=[{"role": "user", "content": f"Inject lower-probability word choices into these flagged sentences. Preserve all numbers, names, and facts exactly. Return only the rewritten sentences, one per line, same order.\n\n{numbered}"}]
     )
@@ -1406,9 +1422,13 @@ def nuclear_rewrite():
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
 
+    orig_wc = len(full_text.split())
+    max_wc = int(orig_wc * 1.2)
+
     # Step 1: Extract every fact, number, name, claim as bullet points
     extract = client.messages.create(
         model=model, max_tokens=2000,
+        temperature=1.0,
         messages=[{"role": "user", "content": f"""Extract every key fact, claim, number, name, date, and logical point from this text as a compact bulleted list. Include every specific detail. Do not summarize or omit anything.
 
 <text>
@@ -1420,6 +1440,7 @@ def nuclear_rewrite():
     # Step 2: Write completely fresh prose from those facts — new structure, new sentences
     rewrite = client.messages.create(
         model=model, max_tokens=16000,
+        temperature=1.0,
         system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral", "ttl": "1h"}}],
         messages=[{"role": "user", "content": f"""Write fresh human-sounding prose using ONLY these extracted facts. Do NOT follow the original sentence structure at all. Build entirely new sentences from scratch. Include every fact listed.
 
@@ -1429,10 +1450,23 @@ Facts:
 Rules:
 - Same register and tone as the source
 - No em dashes, no en dashes, no markdown bold
-- Output only the prose, no preamble"""}]
+- Output only the prose, no preamble
+- LENGTH CAP: original was {orig_wc} words. Output must be no more than {max_wc} words ({orig_wc} + 20%). Be concise. Do not pad."""}]
     )
     raw = rewrite.content[0].text.strip()
-    return {"text": programmatic_burstiness(clean(raw))}
+    result = programmatic_burstiness(clean(raw))
+
+    # Hard cap: enforce <= max_wc words, truncating at last sentence boundary
+    words = result.split()
+    if len(words) > max_wc:
+        truncated = " ".join(words[:max_wc])
+        last_end = max(truncated.rfind("."), truncated.rfind("!"), truncated.rfind("?"))
+        if last_end > len(truncated) * 0.6:
+            result = truncated[:last_end + 1]
+        else:
+            result = truncated
+
+    return {"text": result}
 
 
 @app.route("/humanize", methods=["POST"])
@@ -1470,6 +1504,7 @@ def humanize():
             with client.messages.stream(
                 model=model,
                 max_tokens=16000,
+                temperature=1.0,
                 system=cached_system_pass1,
                 messages=[{"role": "user", "content": user_msg(text)}]
             ) as stream:
@@ -1486,6 +1521,7 @@ def humanize():
             with client.messages.stream(
                 model=model,
                 max_tokens=16000,
+                temperature=1.0,
                 system=cached_system_pass2,
                 messages=[{"role": "user", "content": user_msg(pass1_text)}]
             ) as stream:
@@ -1496,6 +1532,7 @@ def humanize():
             with client.messages.stream(
                 model=model,
                 max_tokens=16000,
+                temperature=1.0,
                 system=cached_system_pass1,
                 messages=[{"role": "user", "content": user_msg(text)}]
             ) as stream:
