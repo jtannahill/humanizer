@@ -14,94 +14,84 @@ Higher d(x) = more AI-like. Human text scores near 0; AI text scores positive.
 This is the opposite convention from Binoculars/GPT-2 perplexity, so the
 human_score mapping inverts the discrepancy.
 
-Default model: Qwen2.5-1.5B (~3GB). Same family as Binoculars 1.5B so the
-HuggingFace cache is shared — no extra disk cost if Binoculars 1.5B is loaded.
+Backend: MLX on Apple Silicon.
+Default model: mlx-community/Qwen2.5-1.5B-bf16 (~3GB).
 """
 
 import re
 from typing import List, Tuple
 
-DEFAULT_MODEL = "Qwen/Qwen2.5-1.5B"
+DEFAULT_MODEL = "mlx-community/Qwen2.5-1.5B-bf16"
 
 # Empirical starting points — calibrate on a real corpus before trusting numeric
 # scores. Higher discrepancy = more AI-like. Inverted in _human_score below.
 AI_THRESHOLD = 1.5      # discrepancy >= this looks AI
 HUMAN_THRESHOLD = 0.5   # discrepancy <= this looks human
 
+MAX_TOKENS = 2048
+
 _model = None
 _tokenizer = None
-_device = None
-_dtype = None
 
 
-def _ensure_loaded(model_name: str = DEFAULT_MODEL):
-    global _model, _tokenizer, _device, _dtype
+def _ensure_loaded():
+    global _model, _tokenizer
     if _model is not None:
-        return _model, _tokenizer, _device
+        return _model, _tokenizer
 
-    import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from mlx_lm import load
 
-    if torch.backends.mps.is_available():
-        _device = "mps"
-        _dtype = torch.float16
-    elif torch.cuda.is_available():
-        _device = "cuda"
-        _dtype = torch.float16
-    else:
-        _device = "cpu"
-        _dtype = torch.float32
-
-    _tokenizer = AutoTokenizer.from_pretrained(model_name)
-    if _tokenizer.pad_token is None:
-        _tokenizer.pad_token = _tokenizer.eos_token
-
-    _model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=_dtype).to(_device)
-    _model.eval()
-    return _model, _tokenizer, _device
+    _model, _tokenizer = load(DEFAULT_MODEL)
+    return _model, _tokenizer
 
 
 def _split_sentences(text: str) -> List[str]:
     return [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
 
 
+def _encode(tokenizer, text: str):
+    """Encode `text` to a 1xL mx.array of token ids, truncated to MAX_TOKENS."""
+    import mlx.core as mx
+
+    ids = tokenizer.encode(text)
+    if len(ids) > MAX_TOKENS:
+        ids = ids[:MAX_TOKENS]
+    return mx.array([ids])
+
+
 def fast_detectgpt_score(text: str) -> float:
     """Compute the Fast-DetectGPT discrepancy. Higher = more AI-like."""
     if not text.strip():
         return 0.0
-    import torch
-    import torch.nn.functional as F
 
-    model, tok, device = _ensure_loaded()
-    enc = tok(text, return_tensors="pt", truncation=True, max_length=2048).to(device)
-    input_ids = enc.input_ids
+    import mlx.core as mx
+
+    model, tok = _ensure_loaded()
+    input_ids = _encode(tok, text)
     if input_ids.shape[1] < 2:
         return 0.0
 
-    with torch.no_grad():
-        logits = model(input_ids).logits
+    logits = model(input_ids)
 
-    # Predict position i+1 from position i
-    logits_shift = logits[..., :-1, :].float()    # (1, L-1, V)
-    labels = input_ids[..., 1:]                    # (1, L-1)
-    log_probs = F.log_softmax(logits_shift, dim=-1)
-    probs = log_probs.exp()
+    logits_shift = logits[..., :-1, :].astype(mx.float32)
+    labels = input_ids[..., 1:]
 
-    # Actual log p(x_t)
-    actual = log_probs.gather(-1, labels.unsqueeze(-1)).squeeze(-1)  # (1, L-1)
+    log_probs = logits_shift - mx.logsumexp(logits_shift, axis=-1, keepdims=True)
+    probs = mx.exp(log_probs)
 
-    # Closed-form moments under p_t
-    expected = (probs * log_probs).sum(dim=-1)              # E[log p(x̃)] per position
-    expected_sq = (probs * log_probs.pow(2)).sum(dim=-1)    # E[(log p(x̃))^2] per position
-    variance = (expected_sq - expected.pow(2)).clamp_min(0)
+    actual = mx.take_along_axis(log_probs, labels[..., None], axis=-1).squeeze(-1)
 
-    mu = actual.sum(dim=-1)
-    mu_tilde = expected.sum(dim=-1)
-    sigma = variance.sum(dim=-1).sqrt()
+    expected = (probs * log_probs).sum(axis=-1)
+    expected_sq = (probs * (log_probs ** 2)).sum(axis=-1)
+    variance = mx.maximum(expected_sq - expected ** 2, 0)
 
-    if sigma.item() == 0:
+    mu = float(actual.sum(axis=-1))
+    mu_tilde = float(expected.sum(axis=-1))
+    sigma = float(mx.sqrt(variance.sum(axis=-1)))
+
+    if sigma == 0:
         return 0.0
-    return ((mu - mu_tilde) / sigma).item()
+    return (mu - mu_tilde) / sigma
 
 
 def per_sentence_fast_detectgpt(text: str) -> List[Tuple[str, float]]:
