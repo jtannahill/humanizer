@@ -12,83 +12,92 @@ observer perplexity and cross-perplexity that single-model detectors miss.
 
 Lower score = more AI-like. Higher = more human-like.
 
-Backend: MLX on Apple Silicon. Model pair (bf16, ~3GB each):
-  observer:  mlx-community/Qwen2.5-1.5B-bf16
-  performer: mlx-community/Qwen2.5-1.5B-Instruct-bf16
+Default pair: Qwen2.5-1.5B + Qwen2.5-1.5B-Instruct (~3GB total).
+Original paper used Falcon-7B + Falcon-7B-Instruct (~14GB).
 """
 
 import re
 from typing import List, Tuple
 
-DEFAULT_OBSERVER = "mlx-community/Qwen2.5-1.5B-bf16"
-DEFAULT_PERFORMER = "mlx-community/Qwen2.5-1.5B-Instruct-bf16"
+DEFAULT_OBSERVER = "Qwen/Qwen2.5-1.5B"
+DEFAULT_PERFORMER = "Qwen/Qwen2.5-1.5B-Instruct"
 
-# Rough thresholds for the Qwen 1.5B pair. Recalibrate on a real corpus of
-# known-AI vs known-human samples before trusting the human_score numerically.
+# Rough thresholds for the Qwen 1.5B pair — empirical starting points from a
+# short-text smoke test (AI ≈ 0.83, human ≈ 0.85). Recalibrate on a real corpus
+# of known-AI vs known-human samples before trusting the human_score numerically.
 AI_THRESHOLD = 0.82
 HUMAN_THRESHOLD = 0.88
-
-MAX_TOKENS = 2048
 
 _observer = None
 _performer = None
 _tokenizer = None
+_device = None
+_dtype = None
 
 
-def _ensure_loaded():
-    global _observer, _performer, _tokenizer
+def _ensure_loaded(observer_name: str = DEFAULT_OBSERVER, performer_name: str = DEFAULT_PERFORMER):
+    global _observer, _performer, _tokenizer, _device, _dtype
     if _observer is not None:
-        return _observer, _performer, _tokenizer
+        return _observer, _performer, _tokenizer, _device
 
-    from mlx_lm import load
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    _observer, _tokenizer = load(DEFAULT_OBSERVER)
-    _performer, _ = load(DEFAULT_PERFORMER)
-    return _observer, _performer, _tokenizer
+    if torch.backends.mps.is_available():
+        _device = "mps"
+        _dtype = torch.float16
+    elif torch.cuda.is_available():
+        _device = "cuda"
+        _dtype = torch.float16
+    else:
+        _device = "cpu"
+        _dtype = torch.float32
+
+    _tokenizer = AutoTokenizer.from_pretrained(observer_name)
+    if _tokenizer.pad_token is None:
+        _tokenizer.pad_token = _tokenizer.eos_token
+
+    _observer = AutoModelForCausalLM.from_pretrained(observer_name, torch_dtype=_dtype).to(_device)
+    _performer = AutoModelForCausalLM.from_pretrained(performer_name, torch_dtype=_dtype).to(_device)
+    _observer.eval()
+    _performer.eval()
+    return _observer, _performer, _tokenizer, _device
 
 
 def _split_sentences(text: str) -> List[str]:
     return [s.strip() for s in re.split(r'(?<=[.!?])\s+', text.strip()) if s.strip()]
 
 
-def _encode(tokenizer, text: str):
-    """Encode `text` to a 1xL mx.array of token ids, truncated to MAX_TOKENS."""
-    import mlx.core as mx
-
-    ids = tokenizer.encode(text)
-    if len(ids) > MAX_TOKENS:
-        ids = ids[:MAX_TOKENS]
-    return mx.array([ids])
-
-
 def binoculars_score(text: str) -> float:
     """Compute the Binoculars score for a text. Lower = AI, higher = human."""
     if not text.strip():
         return 0.0
+    import torch
+    import torch.nn.functional as F
 
-    import mlx.core as mx
-
-    obs, perf, tok = _ensure_loaded()
-    input_ids = _encode(tok, text)
+    obs, perf, tok, device = _ensure_loaded()
+    enc = tok(text, return_tensors="pt", truncation=True, max_length=2048).to(device)
+    input_ids = enc.input_ids
     if input_ids.shape[1] < 2:
         return 0.0
 
-    obs_logits = obs(input_ids)
-    perf_logits = perf(input_ids)
+    with torch.no_grad():
+        obs_logits = obs(input_ids).logits
+        perf_logits = perf(input_ids).logits
 
-    obs_shift = obs_logits[..., :-1, :].astype(mx.float32)
-    perf_shift = perf_logits[..., :-1, :].astype(mx.float32)
+    # Shift so we're predicting position i+1 from position i
+    obs_shift = obs_logits[..., :-1, :].float()
+    perf_shift = perf_logits[..., :-1, :].float()
     labels = input_ids[..., 1:]
 
-    obs_log_probs = obs_shift - mx.logsumexp(obs_shift, axis=-1, keepdims=True)
-    perf_log_probs = perf_shift - mx.logsumexp(perf_shift, axis=-1, keepdims=True)
-    perf_probs = mx.exp(perf_log_probs)
+    # log(PPL_observer) = CE of true tokens under observer
+    log_ppl = F.cross_entropy(obs_shift.reshape(-1, obs_shift.size(-1)), labels.reshape(-1), reduction="mean").item()
 
-    gathered = mx.take_along_axis(obs_log_probs, labels[..., None], axis=-1).squeeze(-1)
-    log_ppl = float(-gathered.mean())
-
-    cross_entropy_per_token = -(perf_probs * obs_log_probs).sum(axis=-1)
-    log_x_ppl = float(cross_entropy_per_token.mean())
+    # log(X-PPL) = mean over positions of -sum_v performer_prob[v] * log observer_prob[v]
+    perf_probs = F.softmax(perf_shift, dim=-1)
+    obs_log_probs = F.log_softmax(obs_shift, dim=-1)
+    cross_entropy_per_token = -(perf_probs * obs_log_probs).sum(dim=-1)
+    log_x_ppl = cross_entropy_per_token.mean().item()
 
     if log_x_ppl == 0:
         return 0.0
