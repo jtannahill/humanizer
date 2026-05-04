@@ -31,24 +31,26 @@ python3 humanize.py input.txt output.txt
 
 ## Stack
 
-- Python 3, Flask, `anthropic` SDK
+- Python 3.10+, Flask, `anthropic` SDK
 - All prompt logic in `prompt.py` — edit there to update all passes
 - Local detectors in `scorer.py` (dispatcher), `binoculars_scorer.py`, `fast_detectgpt_scorer.py`
-- First use of a Qwen-backed detector downloads `Qwen/Qwen2.5-1.5B` (~3GB) to the HuggingFace cache; both Binoculars and Fast-DetectGPT share it
+- GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use — separate cache slots for the PyTorch (`Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-1.5B-Instruct`) and MLX (`mlx-community/Qwen2.5-1.5B-bf16`) variants.
 
 ## Detector backends
 
 Switch via the dropdown in the header. The selected backend feeds the loop oracle alongside GPTZero (70% GPTZero / 30% local). Thresholds in `binoculars_scorer.py` and `fast_detectgpt_scorer.py` are rough starting points — calibrate on a real corpus before trusting the numeric `human_score`.
 
-| Backend | Model | Memory | When to use |
-|---|---|---|---|
-| `gpt2` | GPT-2 large | ~2GB | Default; fastest; weakest signal; ~150ms per loop pass |
-| `binoculars` | Qwen 2.5-1.5B + Instruct (pair) | ~6GB | Stronger signal; closer to paper-quality; ~1–2s per loop pass |
-| `fast_detectgpt` | Qwen 2.5-1.5B | ~3GB | Single-model, often beats Binoculars on out-of-distribution text |
+| Backend | Runtime | Model | Memory | Warm latency | Notes |
+|---|---|---|---|---|---|
+| `gpt2` | PyTorch+MPS | GPT-2 large | ~2GB | ~150ms | Default; fastest cold-start; weakest signal |
+| `binoculars` | PyTorch+MPS | Qwen 2.5-1.5B + Instruct (pair) | ~6GB | ~250ms | Stronger signal; closer to paper-quality |
+| `fast_detectgpt` | MLX (bf16) | Qwen 2.5-1.5B | ~3GB | ~70–120ms | Single model, often beats Binoculars on out-of-distribution text |
+
+> **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~11GB) will trigger heavy swap. Restart the server to flush.
 
 ## Loop strategy rotation
 
-When you click HUMANIZE the loop runs up to 10 iterations, rotating through these strategies:
+When you click HUMANIZE the loop runs up to 4 iterations, rotating through these strategies:
 
 1. **Nuclear** (default on) — extract every fact, claim, number, name, date as a bullet list, then write fresh prose from those bullets. Most fingerprint-breaking pass. Hard-capped at +20% of original word count (prompt + post-processing).
 2. **Sentence rewrite** — rewrites only sentences flagged by GPTZero, with diagnostic context (burstiness, paraphrased vs. pure-AI subclass) baked into the prompt.
@@ -62,10 +64,17 @@ Toggle nuclear off (header button) to fall back to the 3-strategy rotation.
 ## Setup
 
 ```bash
-pip install anthropic flask python-docx
-cp start.sh.example start.sh   # add your key
+uv sync                       # installs from pyproject.toml + uv.lock
+cp start.sh.example start.sh  # add your ANTHROPIC_API_KEY (or use a .env file)
 chmod +x start.sh
 ./start.sh
 ```
 
-> `start.sh` is gitignored — it contains your API key.
+> `start.sh` is gitignored — it contains your API key. The `mlx` and `mlx-lm` deps are Apple Silicon only; on non-Mac hosts `uv sync` will fail there. Fast-DetectGPT is the only backend that requires them.
+
+## Tests
+
+```bash
+uv run pytest tests/ -v       # parity tests (~30s warm, ~2 min cold)
+uv run python scripts/bench_scorers.py  # warm-call latency per backend
+```
