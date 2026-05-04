@@ -441,8 +441,8 @@ HTML = r"""<!DOCTYPE html>
     <select id="model-select">
       <option value="claude-opus-4-7">Opus 4.7</option>
       <option value="claude-opus-4-6">Opus 4.6</option>
-      <option value="claude-sonnet-4-6" selected>Sonnet 4.6</option>
-      <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fastest)</option>
+      <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+      <option value="claude-haiku-4-5-20251001" selected>Haiku 4.5 (fastest)</option>
     </select>
     <select id="detector-select" title="Local detector / oracle">
       <option value="gpt2" selected>GPT-2 (fast)</option>
@@ -529,7 +529,7 @@ let sourceFilename  = null;
 let twoPass         = true;
 let nuclearEnabled  = true;
 
-const MAX_LOOPS   = 10;
+const MAX_LOOPS   = 4;
 const SENT_THRESH = 0.50;
 let lastAiScore   = 1.0;
 let bestAiScore   = 1.0;
