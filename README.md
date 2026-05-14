@@ -6,7 +6,7 @@
 ![Claude](https://img.shields.io/badge/Claude-D97757?logo=anthropic&logoColor=white)
 ![Last Commit](https://img.shields.io/github/last-commit/jtannahill/humanizer)
 
-Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authentically human-written — removes hedging language, em dashes, over-structured bullets, filler openers, and other telltale patterns. Preserves all original meaning, facts, and sentential logic.
+Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authentically human-written: removes hedging language, em dashes, over-structured bullets, filler openers, and other telltale patterns. Preserves all original meaning, facts, and sentential logic.
 
 ## Features
 
@@ -28,23 +28,23 @@ Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authen
 ./start.sh
 # open http://localhost:5757
 
-# CLI — rewrites a file (saves to input_humanized.txt)
+# CLI: rewrites a file (saves to input_humanized.txt)
 python3 humanize.py input.txt
 
-# CLI — specify output path
+# CLI: specify output path
 python3 humanize.py input.txt output.txt
 ```
 
 ## Stack
 
 - Python 3.10+, Flask, `anthropic` SDK
-- All prompt logic in `prompt.py` — edit there to update all passes
+- All prompt logic in `prompt.py`: edit there to update all passes
 - Local detectors in `scorer.py` (dispatcher), `binoculars_scorer.py`, `fast_detectgpt_scorer.py`
-- GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use — separate cache slots for the PyTorch (`Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-1.5B-Instruct`) and MLX (`mlx-community/Qwen2.5-1.5B-bf16`) variants.
+- GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use: separate cache slots for the PyTorch (`Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-1.5B-Instruct`) and MLX (`mlx-community/Qwen2.5-1.5B-bf16`) variants.
 
 ## Detector backends
 
-Switch via the dropdown in the header. The selected backend feeds the loop oracle alongside GPTZero (70% GPTZero / 30% local). Thresholds in `binoculars_scorer.py` and `fast_detectgpt_scorer.py` are rough starting points — calibrate on a real corpus before trusting the numeric `human_score`.
+Switch via the dropdown in the header. The selected backend feeds the loop oracle alongside GPTZero (70% GPTZero / 30% local). Thresholds in `binoculars_scorer.py` and `fast_detectgpt_scorer.py` are rough starting points: calibrate on a real corpus before trusting the numeric `human_score`.
 
 | Backend | Runtime | Model | Memory | Warm latency | Notes |
 |---|---|---|---|---|---|
@@ -58,10 +58,10 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 
 When you click HUMANIZE the loop runs up to 4 iterations, rotating through these strategies:
 
-1. **Nuclear** (default on) — extract every fact, claim, number, name, date as a bullet list, then write fresh prose from those bullets. Most fingerprint-breaking pass. Hard-capped at +20% of original word count (prompt + post-processing).
-2. **Sentence rewrite** — rewrites only sentences flagged by GPTZero, with diagnostic context (burstiness, paraphrased vs. pure-AI subclass) baked into the prompt.
-3. **Perplexity injection** — replaces high-probability words with lower-probability but natural alternatives in flagged sentences.
-4. **Structural rewrite** — full-document restructure: clause reordering, paragraph splits/merges, sentence-length extremes for burstiness.
+1. **Nuclear** (default on): extract every fact, claim, number, name, date as a bullet list, then write fresh prose from those bullets. Most fingerprint-breaking pass. Hard-capped at +20% of original word count (prompt + post-processing).
+2. **Sentence rewrite**: rewrites only sentences flagged by GPTZero, with diagnostic context (burstiness, paraphrased vs. pure-AI subclass) baked into the prompt.
+3. **Perplexity injection**: replaces high-probability words with lower-probability but natural alternatives in flagged sentences.
+4. **Structural rewrite**: full-document restructure: clause reordering, paragraph splits/merges, sentence-length extremes for burstiness.
 
 The loop tracks the lowest combined-oracle score across all iterations and restores that version at the end if the final pass regressed. The final status line and score badge always show the GPTZero score for the best output, since that's the user-facing number.
 
@@ -76,7 +76,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-> `start.sh` is gitignored — it contains your API key. The `mlx` and `mlx-lm` deps are Apple Silicon only; on non-Mac hosts `uv sync` will fail there. Fast-DetectGPT is the only backend that requires them.
+> `start.sh` is gitignored: it contains your API key. The `mlx` and `mlx-lm` deps are Apple Silicon only; on non-Mac hosts `uv sync` will fail there. Fast-DetectGPT is the only backend that requires them.
 
 ## Tests
 
