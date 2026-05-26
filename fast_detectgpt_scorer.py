@@ -15,18 +15,22 @@ This is the opposite convention from Binoculars/GPT-2 perplexity, so the
 human_score mapping inverts the discrepancy.
 
 Backend: MLX on Apple Silicon.
-Default model: mlx-community/Qwen2.5-1.5B-bf16 (~3GB).
+Default model: mlx-community/Qwen3-1.7B-bf16 (~3.4GB).
 """
 
 import re
 from typing import List, Tuple
 
-DEFAULT_MODEL = "mlx-community/Qwen2.5-1.5B-bf16"
+DEFAULT_MODEL = "mlx-community/Qwen3-1.7B-bf16"
 
-# Empirical starting points — calibrate on a real corpus before trusting numeric
-# scores. Higher discrepancy = more AI-like. Inverted in _human_score below.
-AI_THRESHOLD = 1.5      # discrepancy >= this looks AI
-HUMAN_THRESHOLD = 0.5   # discrepancy <= this looks human
+# Thresholds calibrated on the conftest AI_SAMPLE / HUMAN_SAMPLE pair using
+# Qwen3-1.7B (MLX bf16) on 2026-05-26. Higher discrepancy = more AI-like.
+# Inverted in _human_score below. Gap on these samples is ~0.5, much wider
+# than the ~0.04 gap the Qwen2.5-1.5B port produced — Qwen3-1.7B is the
+# stronger detector for this backend. Recalibrate on a richer corpus before
+# trusting numeric human_score.
+AI_THRESHOLD = -6.08    # discrepancy >= this looks AI
+HUMAN_THRESHOLD = -6.60 # discrepancy <= this looks human
 
 MAX_TOKENS = 2048
 

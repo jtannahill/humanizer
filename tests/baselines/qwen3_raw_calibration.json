@@ -1,0 +1,26 @@
+{
+  "binoculars": {
+    "ai": {
+      "binoculars": 1.2214584120090635,
+      "burstiness": 0.3126436781609196,
+      "human_score": 0.703751724137931
+    },
+    "human": {
+      "binoculars": 1.1573157702299743,
+      "burstiness": 7.272368421052631,
+      "human_score": 0.7872684210526315
+    }
+  },
+  "fast_detectgpt": {
+    "ai": {
+      "fast_detectgpt": -6.084232271366012,
+      "burstiness": 0.3126436781609196,
+      "human_score": 0.003751724137931035
+    },
+    "human": {
+      "fast_detectgpt": -6.596191186742514,
+      "burstiness": 7.272368421052631,
+      "human_score": 0.08726842105263158
+    }
+  }
+}

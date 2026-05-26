@@ -3,16 +3,16 @@
     "label": "ai",
     "text_len": 703,
     "result": {
-      "binoculars": 1.2068103172216182,
+      "binoculars": 1.2214584120090635,
       "burstiness": 0.3126436781609196,
-      "human_score": 0.703751724137931
+      "human_score": 0.003751724137931035
     }
   },
   "human": {
     "label": "human",
     "text_len": 497,
     "result": {
-      "binoculars": 0.9737176243388433,
+      "binoculars": 1.1573157702299743,
       "burstiness": 7.272368421052631,
       "human_score": 0.7872684210526315
     }

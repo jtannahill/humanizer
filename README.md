@@ -17,7 +17,7 @@ Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authen
 - Nuclear rewrite is on by default and runs first in the loop; output capped at +20% of original word count
 - Combined-oracle loop: tracks best output by `0.7 × GPTZero + 0.3 × (1 − local_human_score)`; final badge still reports the GPTZero number
 - Subtle error injection to break statistical AI signatures
-- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen 2.5-1.5B), or Fast-DetectGPT (Qwen 2.5-1.5B)
+- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), or Fast-DetectGPT (Qwen3-1.7B)
 - Prompt caching on the main system prompt (1h TTL) to keep API cost down on repeat runs
 - Explicit `temperature=1.0` on all Claude calls (Anthropic's max) for documented sampling behavior
 
@@ -40,7 +40,7 @@ python3 humanize.py input.txt output.txt
 - Python 3.10+, Flask, `anthropic` SDK
 - All prompt logic in `prompt.py`: edit there to update all passes
 - Local detectors in `scorer.py` (dispatcher), `binoculars_scorer.py`, `fast_detectgpt_scorer.py`
-- GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use: separate cache slots for the PyTorch (`Qwen/Qwen2.5-1.5B`, `Qwen/Qwen2.5-1.5B-Instruct`) and MLX (`mlx-community/Qwen2.5-1.5B-bf16`) variants.
+- GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use: separate cache slots for the PyTorch (`Qwen/Qwen3-1.7B-Base`, `Qwen/Qwen3-1.7B`) and MLX (`mlx-community/Qwen3-1.7B-bf16`) variants.
 
 ## Detector backends
 
@@ -49,10 +49,10 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 | Backend | Runtime | Model | Memory | Warm latency | Notes |
 |---|---|---|---|---|---|
 | `gpt2` | PyTorch+MPS | GPT-2 large | ~2GB | ~150ms | Default; fastest cold-start; weakest signal |
-| `binoculars` | PyTorch+MPS | Qwen 2.5-1.5B + Instruct (pair) | ~6GB | ~250ms | Stronger signal; closer to paper-quality |
-| `fast_detectgpt` | MLX (bf16) | Qwen 2.5-1.5B | ~3GB | ~70–120ms | Single model, often beats Binoculars on out-of-distribution text |
+| `binoculars` | PyTorch+MPS | Qwen3-1.7B-Base + Qwen3-1.7B (pair) | ~7GB | ~300ms | Stronger signal; closer to paper-quality |
+| `fast_detectgpt` | MLX (bf16) | Qwen3-1.7B | ~3.4GB | ~80–140ms | Single model, often beats Binoculars on out-of-distribution text |
 
-> **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~11GB) will trigger heavy swap. Restart the server to flush.
+> **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~12GB) will trigger heavy swap. Restart the server to flush.
 
 ## Loop strategy rotation
 
