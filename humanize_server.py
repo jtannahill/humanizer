@@ -26,6 +26,8 @@ HTML = r"""<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HÜMÄNIẞAHHH</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.ico" sizes="48x48">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1117,6 +1119,19 @@ inputPane.addEventListener('drop', e => {
 @app.route("/")
 def index():
     return HTML
+
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+@app.route("/favicon.svg")
+def favicon_svg():
+    return send_file(os.path.join(_HERE, "favicon.svg"), mimetype="image/svg+xml")
+
+
+@app.route("/favicon.ico")
+def favicon_ico():
+    return send_file(os.path.join(_HERE, "favicon.ico"), mimetype="image/x-icon")
 
 
 GPTZERO_KEY = "3141057c16724e4494fa346cc983d7c8"
