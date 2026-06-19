@@ -1,4 +1,4 @@
-# HÜMÄNIẞAHHH
+# Humanizer
 
 ![Status](https://img.shields.io/badge/status-active-success)
 ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
