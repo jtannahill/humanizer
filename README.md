@@ -18,6 +18,7 @@ Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authen
 - Combined-oracle loop: tracks best output by `0.7 × GPTZero + 0.3 × (1 − local_human_score)`; final badge still reports the GPTZero number
 - Subtle error injection to break statistical AI signatures
 - Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), or Fast-DetectGPT (Qwen3-1.7B)
+- Pluggable rewriter: a header toggle routes all rewrite passes to a local Ollama model on Apple Silicon instead of Claude (scoring stays on GPTZero)
 - Prompt caching on the main system prompt (1h TTL) to keep API cost down on repeat runs
 - Explicit `temperature=1.0` on all Claude calls (Anthropic's max) for documented sampling behavior
 
@@ -33,17 +34,19 @@ flowchart LR
     CF["Cloudflare edge"]
     T["cloudflared tunnel"]
     F["Flask app<br/>humanize_server.py<br/>127.0.0.1:5757"]
-    A["Anthropic API (Claude)"]
+    A["Anthropic API (Claude, default)"]
+    O["Local Ollama (Apple Silicon)<br/>localhost:11434"]
     G["GPTZero API"]
     L["Local detector (in-process)<br/>GPT-2 / Binoculars / Fast-DetectGPT"]
 
     U -->|HTTPS| CF -->|tunnel| T --> F
-    F -->|messages.stream| A
+    F -->|cloud (default)| A
+    F -->|local toggle| O
     F -->|POST /detect| G
     F -.in-process.-> L
 ```
 
-The tunnel maps `humanizer.jamestannahill.com` to `http://127.0.0.1:5757`. Outbound calls to the Anthropic and GPTZero APIs originate from the same machine, and the local detectors run in-process via `scorer.py`. If the Mac is offline, the site is down.
+The tunnel maps `humanizer.jamestannahill.com` to `http://127.0.0.1:5757`. Rewrite passes go to Claude by default, or to a local Ollama model when the header toggle is on. Outbound calls to the Anthropic and GPTZero APIs originate from the same machine, and the local detectors run in-process via `scorer.py`. If the Mac is offline, the site is down.
 
 ### Request lifecycle
 
@@ -78,6 +81,7 @@ Running states, in order:
 | POST | `/humanize` | Streamed initial rewrite (1 or 2 pass) |
 | POST | `/detect` | GPTZero proxy (cloud) |
 | POST | `/local-score` | Local detector (`gpt2` / `binoculars` / `fast_detectgpt`) |
+| GET | `/ollama-models` | List locally pulled Ollama models (populates the dropdown) |
 | POST | `/nuclear-rewrite` | Loop strategy 1: fact-extract then rewrite from scratch |
 | POST | `/rehumanize-sentences` | Loop strategy 2: rewrite GPTZero-flagged sentences |
 | POST | `/perplexity-inject` | Loop strategy 3: lower-probability word swaps |
@@ -117,6 +121,18 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 | `fast_detectgpt` | MLX (bf16) | Qwen3-1.7B | ~3.4GB | ~80–140ms | Single model, often beats Binoculars on out-of-distribution text |
 
 > **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~12GB) will trigger heavy swap. Restart the server to flush.
+
+## Local rewriter (Ollama)
+
+The header `cloud` / `local` toggle decides where the rewrite passes run. In `cloud` mode (default) they call Claude; in `local` mode they call a model served by [Ollama](https://ollama.com) at `localhost:11434`, so generation is free, private, and offline-capable on Apple Silicon.
+
+Setup: install Ollama, start it (`ollama serve`), and pull a model (`ollama pull llama3.1:8b`). Flipping the toggle queries `/ollama-models` and repopulates the model dropdown with whatever you have pulled; models are addressed internally with an `ollama:` prefix (`ollama:llama3.1:8b`). The toggle no-ops with a status message if Ollama is not reachable. Point at a non-default host with the `OLLAMA_HOST` env var.
+
+Scope and caveats:
+
+- Only the **rewriter** goes local. Scoring still uses GPTZero (`/detect`), which is also what supplies the per-sentence flags that drive the sentence-rewrite and perplexity loop strategies, so the loop still needs the network.
+- Small local models follow the strict "preserve every number, name, and logical claim; no preamble" rules less reliably than Claude. Treat `local` mode as a free/private/offline option, not a quality upgrade. The cleaning and burstiness post-processing still run, but a weak model can leak preamble or drift on facts.
+- Prompt caching is Anthropic-only; on the Ollama path the system prompt is sent as a plain message (local inference is free anyway).
 
 ## Loop strategy rotation
 
