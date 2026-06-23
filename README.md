@@ -126,12 +126,19 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 
 The header `cloud` / `local` toggle decides where the rewrite passes run. In `cloud` mode (default) they call Claude; in `local` mode they call a model served by [Ollama](https://ollama.com) at `localhost:11434`, so generation is free, private, and offline-capable on Apple Silicon.
 
-Setup: install Ollama, start it (`ollama serve`), and pull a model (`ollama pull llama3.1:8b`). Flipping the toggle queries `/ollama-models` and repopulates the model dropdown with whatever you have pulled; models are addressed internally with an `ollama:` prefix (`ollama:llama3.1:8b`). The toggle no-ops with a status message if Ollama is not reachable. Point at a non-default host with the `OLLAMA_HOST` env var.
+Setup: install Ollama, start it (`ollama serve`), and pull a model. `qwen2.5:14b-instruct` (~9GB) is the recommended pick on a 16GB Apple Silicon machine: it follows the strict "preserve facts, no preamble" rules far better than smaller models while still fitting in memory alongside the GPT-2 detector. `llama3.1:8b` works but leaks preamble and over-structures.
+
+```bash
+ollama pull qwen2.5:14b-instruct
+```
+
+Flipping the toggle queries `/ollama-models` and repopulates the model dropdown with whatever you have pulled; models are addressed internally with an `ollama:` prefix (`ollama:qwen2.5:14b-instruct`). The toggle no-ops with a status message if Ollama is not reachable. Point at a non-default host with the `OLLAMA_HOST` env var.
 
 Scope and caveats:
 
 - Only the **rewriter** goes local. Scoring still uses GPTZero (`/detect`), which is also what supplies the per-sentence flags that drive the sentence-rewrite and perplexity loop strategies, so the loop still needs the network.
-- Small local models follow the strict "preserve every number, name, and logical claim; no preamble" rules less reliably than Claude. Treat `local` mode as a free/private/offline option, not a quality upgrade. The cleaning and burstiness post-processing still run, but a weak model can leak preamble or drift on facts.
+- On the Ollama path, prose-producing passes get a hard no-preamble output contract appended (`with_output_guard`) to stop small models leaking commentary or headings; the fact-extraction step in the nuclear pass is exempt so it can still return a bullet list.
+- Local models still follow the strict "preserve every number, name, and logical claim" rules less reliably than Claude, and can mildly embellish. Treat `local` mode as a free/private/offline option, not a quality upgrade.
 - Prompt caching is Anthropic-only; on the Ollama path the system prompt is sent as a plain message (local inference is free anyway).
 
 ## Loop strategy rotation

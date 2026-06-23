@@ -20,6 +20,25 @@ OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 TEMPERATURE = 1.0
 
 
+OUTPUT_GUARD = (
+    "\n\nOUTPUT CONTRACT: Reply with ONLY the rewritten text. No preamble, "
+    "no explanations, no headings, no labels, no lists, no commentary about "
+    "what you changed."
+)
+
+
+def with_output_guard(user: str, prose_only: bool) -> str:
+    """Append a hard no-preamble contract for prose-producing calls.
+
+    Small local models often leak preamble or headings; this reins them in.
+    Skipped for non-prose calls (e.g. the nuclear fact-extraction step, which
+    must return a bullet list).
+    """
+    if prose_only:
+        return user + OUTPUT_GUARD
+    return user
+
+
 def is_ollama_model(model: str) -> bool:
     """True when the model string targets a local Ollama model."""
     return bool(model) and model.startswith(OLLAMA_PREFIX)

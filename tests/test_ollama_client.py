@@ -12,7 +12,20 @@ from ollama_client import (
     build_ollama_payload,
     parse_ollama_stream_line,
     parse_ollama_response,
+    with_output_guard,
+    OUTPUT_GUARD,
 )
+
+
+def test_output_guard_appended_when_prose_only():
+    out = with_output_guard("Rewrite this.", prose_only=True)
+    assert out.startswith("Rewrite this.")
+    assert out.endswith(OUTPUT_GUARD)
+
+
+def test_output_guard_absent_when_not_prose_only():
+    # The fact-extraction step needs a bullet list, so it must not be guarded.
+    assert with_output_guard("Extract facts.", prose_only=False) == "Extract facts."
 
 
 def test_is_ollama_model_true_for_prefixed():

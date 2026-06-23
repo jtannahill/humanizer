@@ -21,6 +21,7 @@ from ollama_client import (
     ollama_chat,
     ollama_chat_stream,
     list_ollama_models,
+    with_output_guard,
 )
 
 app = Flask(__name__)
@@ -1190,11 +1191,12 @@ def _claude_system_block(system):
     return [{"type": "text", "text": system, "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
 
 
-def llm_complete(model, user, max_tokens, system=None):
+def llm_complete(model, user, max_tokens, system=None, prose_only=False):
     """Non-streaming completion. Routes ollama: models to the local Ollama
-    server, everything else to Claude. Returns the full text."""
+    server, everything else to Claude. Returns the full text. prose_only adds
+    a no-preamble output contract on the Ollama path."""
     if is_ollama_model(model):
-        return ollama_chat(model, system or "", user, max_tokens)
+        return ollama_chat(model, system or "", with_output_guard(user, prose_only), max_tokens)
     kwargs = dict(model=model, max_tokens=max_tokens, temperature=1.0,
                   messages=[{"role": "user", "content": user}])
     if system is not None:
@@ -1202,10 +1204,11 @@ def llm_complete(model, user, max_tokens, system=None):
     return _anthropic_client().messages.create(**kwargs).content[0].text
 
 
-def llm_stream(model, user, max_tokens, system=None):
-    """Streaming completion generator. Yields raw text chunks (uncleaned)."""
+def llm_stream(model, user, max_tokens, system=None, prose_only=False):
+    """Streaming completion generator. Yields raw text chunks (uncleaned).
+    prose_only adds a no-preamble output contract on the Ollama path."""
     if is_ollama_model(model):
-        yield from ollama_chat_stream(model, system or "", user, max_tokens)
+        yield from ollama_chat_stream(model, system or "", with_output_guard(user, prose_only), max_tokens)
         return
     kwargs = dict(model=model, max_tokens=max_tokens, temperature=1.0,
                   messages=[{"role": "user", "content": user}])
@@ -1363,7 +1366,7 @@ Rewriting rules:
 Sentences to rewrite:
 {numbered}"""
 
-    raw = llm_complete(model, prompt, 4000).strip()
+    raw = llm_complete(model, prompt, 4000, prose_only=True).strip()
     lines = [re_mod.sub(r'^\d+\.\s*', '', ln).strip() for ln in raw.split('\n') if ln.strip()]
 
     result = full_text
@@ -1456,7 +1459,7 @@ def structural_rewrite():
     if not provider_ready(model):
         return {"error": "ANTHROPIC_API_KEY not set"}, 500
     user = f"Restructure this text to break AI detection patterns. Preserve all meaning, numbers, and facts exactly.\n\n<text>\n{full_text}\n</text>"
-    raw = llm_complete(model, user, 16000, system=STRUCTURAL_PROMPT).strip()
+    raw = llm_complete(model, user, 16000, system=STRUCTURAL_PROMPT, prose_only=True).strip()
     def clean(s):
         return s.replace("\u2014", ",").replace("\u2013", ",").replace("**", "")
     return {"text": programmatic_burstiness(clean(raw))}
@@ -1476,7 +1479,7 @@ def perplexity_inject():
         return {"error": "ANTHROPIC_API_KEY not set"}, 500
     numbered = "\n".join(f"{i+1}. {s}" for i, s in enumerate(sentences))
     user = f"Inject lower-probability word choices into these flagged sentences. Preserve all numbers, names, and facts exactly. Return only the rewritten sentences, one per line, same order.\n\n{numbered}"
-    raw = llm_complete(model, user, 4000, system=PERPLEXITY_PROMPT).strip()
+    raw = llm_complete(model, user, 4000, system=PERPLEXITY_PROMPT, prose_only=True).strip()
     lines = [re_mod.sub(r'^\d+\.\s*', '', ln).strip() for ln in raw.split('\n') if ln.strip()]
     result = full_text
     for original, rewritten in zip(sentences, lines):
@@ -1520,7 +1523,7 @@ Rules:
 - Same register and tone as the source
 - No em dashes, no en dashes, no markdown bold
 - Output only the prose, no preamble
-- LENGTH CAP: original was {orig_wc} words. Output must be no more than {max_wc} words ({orig_wc} + 20%). Be concise. Do not pad.""", 16000, system=SYSTEM_PROMPT).strip()
+- LENGTH CAP: original was {orig_wc} words. Output must be no more than {max_wc} words ({orig_wc} + 20%). Be concise. Do not pad.""", 16000, system=SYSTEM_PROMPT, prose_only=True).strip()
     result = programmatic_burstiness(clean(raw))
 
     # Hard cap: enforce <= max_wc words, truncating at last sentence boundary
@@ -1559,7 +1562,7 @@ def humanize():
         if two_pass:
             # Pass 1: stream to client AND collect for pass 2
             pass1_chunks = []
-            for chunk in llm_stream(model, user_msg(text), 16000, system=SYSTEM_PROMPT):
+            for chunk in llm_stream(model, user_msg(text), 16000, system=SYSTEM_PROMPT, prose_only=True):
                 cleaned = clean(chunk)
                 pass1_chunks.append(cleaned)
                 yield cleaned
@@ -1569,11 +1572,11 @@ def humanize():
             # Sentinel: tells frontend to clear and start over for pass 2
             yield "\f---PASS2---\f"
 
-            for chunk in llm_stream(model, user_msg(pass1_text), 16000, system=PASS2_PROMPT):
+            for chunk in llm_stream(model, user_msg(pass1_text), 16000, system=PASS2_PROMPT, prose_only=True):
                 yield clean(chunk)
         else:
             # Single pass, stream directly
-            for chunk in llm_stream(model, user_msg(text), 16000, system=SYSTEM_PROMPT):
+            for chunk in llm_stream(model, user_msg(text), 16000, system=SYSTEM_PROMPT, prose_only=True):
                 yield clean(chunk)
 
     return Response(stream_with_context(generate()), mimetype="text/plain")
