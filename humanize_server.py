@@ -1232,7 +1232,7 @@ def favicon_ico():
     return send_file(os.path.join(_HERE, "favicon.ico"), mimetype="image/x-icon")
 
 
-GPTZERO_KEY = "3141057c16724e4494fa346cc983d7c8"
+GPTZERO_KEY = os.environ.get("GPTZERO_KEY")
 
 @app.route("/detect", methods=["POST"])
 def detect():
@@ -1241,6 +1241,8 @@ def detect():
     text = (data or {}).get("text", "").strip()
     if not text:
         return {"error": "no text"}, 400
+    if not GPTZERO_KEY:
+        return {"error": "GPTZERO_KEY not set"}, 500
     resp = req_lib.post(
         "https://api.gptzero.me/v2/predict/text",
         json={"document": text},
