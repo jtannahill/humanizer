@@ -95,8 +95,8 @@ def score(text: str, top_k_worst: int = 5, backend: str = "gpt2", with_sentences
 
     Args:
         backend: "gpt2" — fast, single-model perplexity (default)
-                 "binoculars" — two-model Qwen2.5-1.5B pair, stronger signal
-                 "fast_detectgpt" — single-model Qwen2.5-1.5B, often beats
+                 "binoculars" — two-model Qwen3-1.7B pair, stronger signal
+                 "fast_detectgpt" — single-model Qwen3-1.7B, often beats
                  Binoculars on out-of-distribution text
         with_sentences: if False (default), skip per-sentence inference.
                  Per-sentence scoring runs the model once per sentence and

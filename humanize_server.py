@@ -455,8 +455,8 @@ HTML = r"""<!DOCTYPE html>
     </select>
     <select id="detector-select" title="Local detector / oracle">
       <option value="gpt2" selected>GPT-2 (fast)</option>
-      <option value="binoculars">Binoculars Qwen 1.5B</option>
-      <option value="fast_detectgpt">Fast-DetectGPT Qwen 1.5B</option>
+      <option value="binoculars">Binoculars Qwen 1.7B</option>
+      <option value="fast_detectgpt">Fast-DetectGPT Qwen 1.7B</option>
     </select>
     <button id="pass-toggle" class="active" title="Toggle 1-pass / 2-pass">2-pass</button>
     <button id="nuclear-toggle" title="Include nuclear rewrite in loop (extracts facts, rewrites from scratch)">nuclear</button>
@@ -747,6 +747,25 @@ highlightBtn.addEventListener('click', () => {
   else if (lastSentences.length > 0) showSentenceHighlights(lastSentences);
 });
 
+// Restore the best-scoring output and show its badge. Safe to call from
+// ANY loop-termination path — normal completion or an early exit (rewrite
+// endpoint failed, no flagged sentences, or a thrown error). Without this,
+// early exits left the last iteration's output (not the tracked best) on screen.
+function finalizeBest() {
+  if (bestOutput && bestOutput !== outputEl.value) {
+    outputEl.value = bestOutput;
+    updateOutCount();
+  }
+  if (bestOutput) {
+    const humanPct = Math.round((1 - bestGptzeroAi) * 100);
+    status.textContent = `done — best: ${humanPct}% human (GPTZero)`;
+    renderBadge(outScore, { predicted_class: bestGptzeroAi > 0.5 ? 'ai' : bestGptzeroAi > 0.2 ? 'mixed' : 'human', completely_generated_prob: bestGptzeroAi });
+  } else {
+    status.textContent = 'done';
+  }
+  enableOutputButtons();
+}
+
 // --- Re-humanize loop ---
 async function rehumanizeLoop(scanData) {
   loopCount++;
@@ -768,7 +787,7 @@ async function rehumanizeLoop(scanData) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_text: outputEl.value, model: modelSelect.value })
       });
-      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      if (!res.ok) { finalizeBest(); return; }
       const data = await res.json();
       if (data.text) { outputEl.value = data.text; updateOutCount(); }
 
@@ -779,7 +798,7 @@ async function rehumanizeLoop(scanData) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ full_text: outputEl.value, model: modelSelect.value })
       });
-      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      if (!res.ok) { finalizeBest(); return; }
       const data = await res.json();
       if (data.text) { outputEl.value = data.text; updateOutCount(); }
 
@@ -788,7 +807,7 @@ async function rehumanizeLoop(scanData) {
       const flagged = (scanData.sentences || [])
         .filter(s => s.generated_prob > SENT_THRESH)
         .map(s => s.sentence);
-      if (flagged.length === 0) { status.textContent = 'done'; enableOutputButtons(); return; }
+      if (flagged.length === 0) { finalizeBest(); return; }
 
       const endpoint = strategyLabel === 'perplexity injection' ? '/perplexity-inject' : '/rehumanize-sentences';
       const res = await fetch(endpoint, {
@@ -802,13 +821,12 @@ async function rehumanizeLoop(scanData) {
           subclass: scanData.subclass || {}
         })
       });
-      if (!res.ok) { status.textContent = 'done'; enableOutputButtons(); return; }
+      if (!res.ok) { finalizeBest(); return; }
       const data = await res.json();
       if (data.text) { outputEl.value = data.text; updateOutCount(); }
     }
   } catch(e) {
-    status.textContent = 'done';
-    enableOutputButtons();
+    finalizeBest();
     return;
   }
 
@@ -824,7 +842,7 @@ async function autoScanOutput() {
   outScore.innerHTML = '<span class="score-badge scanning">scanning…</span>';
 
   const data = await runScan(text, outScore, true);
-  if (!data) { status.textContent = 'done'; enableOutputButtons(); return; }
+  if (!data) { finalizeBest(); return; }
 
   lastSentences = data.sentences || [];
   if (lastSentences.length > 0) {
@@ -854,15 +872,7 @@ async function autoScanOutput() {
   if (loopCount < MAX_LOOPS) {
     await rehumanizeLoop(data);
   } else {
-    // Restore best version if current isn't it
-    if (bestOutput && bestOutput !== outputEl.value) {
-      outputEl.value = bestOutput;
-      updateOutCount();
-    }
-    const humanPct = Math.round((1 - bestGptzeroAi) * 100);
-    status.textContent = `done — best: ${humanPct}% human (GPTZero)`;
-    renderBadge(outScore, { predicted_class: bestGptzeroAi > 0.5 ? 'ai' : bestGptzeroAi > 0.2 ? 'mixed' : 'human', completely_generated_prob: bestGptzeroAi });
-    enableOutputButtons();
+    finalizeBest();
   }
 }
 
