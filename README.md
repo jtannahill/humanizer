@@ -17,7 +17,7 @@ Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authen
 - Nuclear rewrite is on by default and runs first in the loop; output capped at +20% of original word count
 - Combined-oracle loop: tracks best output by `0.7 × GPTZero + 0.3 × (1 − local_human_score)`; final badge still reports the GPTZero number
 - Subtle error injection to break statistical AI signatures
-- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), Fast-DetectGPT (Qwen3-1.7B), or a supervised RoBERTa classifier
+- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), Fast-DetectGPT (Qwen3-1.7B), or a supervised RoBERTa classifier (default), chosen empirically by correlation with GPTZero
 - Pluggable rewriter: a header toggle routes all rewrite passes to a local Ollama model on Apple Silicon instead of Claude (scoring stays on GPTZero)
 - Prompt caching on the main system prompt (1h TTL) to keep API cost down on repeat runs
 - Explicit `temperature=1.0` on all Claude calls (Anthropic's max) for documented sampling behavior
@@ -121,7 +121,19 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 | `fast_detectgpt` | MLX (bf16) | Qwen3-1.7B | ~3.4GB | ~80–140ms | Single model, often beats Binoculars on out-of-distribution text; weak loop oracle (ρ≈+0.13) |
 | `roberta` | PyTorch+MPS | RoBERTa classifier (`Hello-SimpleAI/chatgpt-detector-roberta`) | ~0.5GB | ~40ms | **Default.** Supervised; calibrated P(AI), no threshold to tune. Ties binoculars as a loop oracle on real (paragraph-length) output (within-trajectory ρ≈+0.47) at ~1/14 the memory and ~7× faster. Long inputs windowed at 510 tokens, P(AI) length-weighted. Weak on very short text |
 
-> **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~12GB) will trigger heavy swap. Restart the server to flush.
+> **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~12GB) will trigger heavy swap. Restart the server to flush. (The default `roberta` is the lightest at ~0.5GB.)
+
+### Choosing the oracle (why `roberta` is the default)
+
+The local backend's job inside the loop is **not** to be an accurate AI detector — it's to *predict what GPTZero will say*, since GPTZero is the user-facing scorecard. So backends are ranked by how well their `human_score` tracks GPTZero's, not by raw detection accuracy. Three scripts measure this (each subprocess-isolates a backend so their weights never coexist in memory):
+
+| Script | What it measures | Cost |
+|---|---|---|
+| `scripts/compare_backends.py` | Per-backend accuracy + agreement with GPTZero on a labeled JSONL corpus (`--corpus`) | GPTZero calls (`--no-gptzero` runs offline) |
+| `scripts/oracle_correlation.py` | Spearman correlation of each backend's `human_score` with GPTZero over an authored stylistic spectrum | ~30 GPTZero calls |
+| `scripts/real_loop_correlation.py` | The rigorous version: runs the real loop (raw → 2-pass → nuclear → structural) and correlates on the actual intermediates the oracle sees in production | Anthropic + GPTZero calls; dumps to gitignored `scratch_*.json`, re-report with `--analyze <dump>` |
+
+Real-loop result (N=6 trajectories, within-trajectory ρ vs GPTZero): **binoculars +0.50, roberta +0.47, fast_detectgpt +0.13, gpt2 +0.00.** `roberta` ties `binoculars` on signal at ~1/14 the memory and ~7× the speed, so it's the default; `gpt2` carries essentially no signal. The authored-spectrum proxy can mislead on short fragments (it scored `roberta` negative) — trust the real-loop numbers over the spectrum. Even the best oracle is only ~0.5-correlated, so GPTZero stays the primary signal and the local weight remains 30%.
 
 ## Local rewriter (Ollama)
 
@@ -169,6 +181,17 @@ chmod +x start.sh
 ## Tests
 
 ```bash
-uv run pytest tests/ -v       # parity tests (~30s warm, ~2 min cold)
+uv run pytest tests/ -v       # parity + separation + spearman tests (~45s warm, ~2 min cold)
 uv run python scripts/bench_scorers.py  # warm-call latency per backend
+```
+
+## Scripts
+
+```bash
+uv run python scripts/compare_backends.py --corpus data.jsonl   # accuracy + GPTZero agreement
+uv run python scripts/oracle_correlation.py                     # backend↔GPTZero correlation (spectrum)
+uv run python scripts/real_loop_correlation.py                  # rigorous: correlation on real loop output
+uv run python scripts/real_loop_correlation.py --analyze scratch_real_loop_dump.json  # re-report, no spend
+uv run python scripts/calibrate.py                             # dump raw scorer outputs for threshold tuning
+uv run python scripts/capture_baseline.py                     # regenerate parity baselines
 ```
