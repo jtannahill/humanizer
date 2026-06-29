@@ -90,12 +90,13 @@ def _human_score(perp: float, burst: float) -> float:
     return 0.6 * perp_score + 0.4 * burst_score
 
 
-def score(text: str, top_k_worst: int = 5, backend: str = "gpt2", with_sentences: bool = False) -> dict:
+def score(text: str, top_k_worst: int = 5, backend: str = "binoculars", with_sentences: bool = False) -> dict:
     """Full local score for a document.
 
     Args:
-        backend: "gpt2" — fast, single-model perplexity (default)
-                 "binoculars" — two-model Qwen3-1.7B pair, stronger signal
+        backend: "gpt2" — fast, single-model perplexity
+                 "binoculars" — two-model Qwen3-1.7B pair (default); best
+                 predictor of GPTZero ranking (Spearman ~0.45) of the four
                  "fast_detectgpt" — single-model Qwen3-1.7B, often beats
                  Binoculars on out-of-distribution text
                  "roberta" — supervised RoBERTa classifier, calibrated P(AI),

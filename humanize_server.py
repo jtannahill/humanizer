@@ -454,8 +454,8 @@ HTML = r"""<!DOCTYPE html>
       <option value="claude-haiku-4-5-20251001" selected>Haiku 4.5 (fastest)</option>
     </select>
     <select id="detector-select" title="Local detector / oracle">
-      <option value="gpt2" selected>GPT-2 (fast)</option>
-      <option value="binoculars">Binoculars Qwen 1.7B</option>
+      <option value="gpt2">GPT-2 (fast)</option>
+      <option value="binoculars" selected>Binoculars Qwen 1.7B</option>
       <option value="fast_detectgpt">Fast-DetectGPT Qwen 1.7B</option>
       <option value="roberta">RoBERTa classifier</option>
     </select>
@@ -1285,7 +1285,7 @@ def local_score():
     from scorer import score as score_text
     data = request.get_json() or {}
     text = data.get("text", "").strip()
-    backend = data.get("backend", "gpt2")
+    backend = data.get("backend", "binoculars")
     if not text:
         return {"error": "no text"}, 400
     if backend not in {"gpt2", "binoculars", "fast_detectgpt", "roberta"}:

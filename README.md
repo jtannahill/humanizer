@@ -116,8 +116,8 @@ Switch via the dropdown in the header. The selected backend feeds the loop oracl
 
 | Backend | Runtime | Model | Memory | Warm latency | Notes |
 |---|---|---|---|---|---|
-| `gpt2` | PyTorch+MPS | GPT-2 large | ~2GB | ~150ms | Default; fastest cold-start; weakest signal |
-| `binoculars` | PyTorch+MPS | Qwen3-1.7B-Base + Qwen3-1.7B (pair) | ~7GB | ~300ms | Stronger signal; closer to paper-quality |
+| `gpt2` | PyTorch+MPS | GPT-2 large | ~2GB | ~150ms | Fastest cold-start; weakest signal. Anti-correlates with GPTZero on the spectrum corpus (ρ≈−0.40), so a poor loop oracle |
+| `binoculars` | PyTorch+MPS | Qwen3-1.7B-Base + Qwen3-1.7B (pair) | ~7GB | ~300ms | **Default.** Best predictor of GPTZero ranking (ρ≈+0.45 via `scripts/oracle_correlation.py`); closer to paper-quality |
 | `fast_detectgpt` | MLX (bf16) | Qwen3-1.7B | ~3.4GB | ~80–140ms | Single model, often beats Binoculars on out-of-distribution text |
 | `roberta` | PyTorch+MPS | RoBERTa classifier (`Hello-SimpleAI/chatgpt-detector-roberta`) | ~0.5GB | ~40ms | Supervised; emits calibrated P(AI), no threshold to tune; complementary failure mode to the zero-shot backends. Long inputs windowed at 510 tokens, P(AI) length-weighted across windows |
 
