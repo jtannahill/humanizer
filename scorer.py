@@ -90,17 +90,18 @@ def _human_score(perp: float, burst: float) -> float:
     return 0.6 * perp_score + 0.4 * burst_score
 
 
-def score(text: str, top_k_worst: int = 5, backend: str = "binoculars", with_sentences: bool = False) -> dict:
+def score(text: str, top_k_worst: int = 5, backend: str = "roberta", with_sentences: bool = False) -> dict:
     """Full local score for a document.
 
     Args:
         backend: "gpt2" — fast, single-model perplexity
-                 "binoculars" — two-model Qwen3-1.7B pair (default); best
-                 predictor of GPTZero ranking (Spearman ~0.45) of the four
+                 "binoculars" — two-model Qwen3-1.7B pair; marginally best
+                 GPTZero-ranking predictor (within-trajectory ~0.50) but heavy
                  "fast_detectgpt" — single-model Qwen3-1.7B, often beats
                  Binoculars on out-of-distribution text
-                 "roberta" — supervised RoBERTa classifier, calibrated P(AI),
-                 a complementary signal to the zero-shot backends above
+                 "roberta" — supervised RoBERTa classifier (default); ties
+                 binoculars as a loop oracle (within-trajectory ~0.47) at a
+                 fraction of the memory/latency. See scripts/real_loop_correlation.py
         with_sentences: if False (default), skip per-sentence inference.
                  Per-sentence scoring runs the model once per sentence and
                  dominates wall-clock time on the Qwen backends. The

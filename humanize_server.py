@@ -455,9 +455,9 @@ HTML = r"""<!DOCTYPE html>
     </select>
     <select id="detector-select" title="Local detector / oracle">
       <option value="gpt2">GPT-2 (fast)</option>
-      <option value="binoculars" selected>Binoculars Qwen 1.7B</option>
+      <option value="binoculars">Binoculars Qwen 1.7B</option>
       <option value="fast_detectgpt">Fast-DetectGPT Qwen 1.7B</option>
-      <option value="roberta">RoBERTa classifier</option>
+      <option value="roberta" selected>RoBERTa classifier</option>
     </select>
     <button id="pass-toggle" class="active" title="Toggle 1-pass / 2-pass">2-pass</button>
     <button id="nuclear-toggle" title="Include nuclear rewrite in loop (extracts facts, rewrites from scratch)">nuclear</button>
@@ -1285,7 +1285,7 @@ def local_score():
     from scorer import score as score_text
     data = request.get_json() or {}
     text = data.get("text", "").strip()
-    backend = data.get("backend", "binoculars")
+    backend = data.get("backend", "roberta")
     if not text:
         return {"error": "no text"}, 400
     if backend not in {"gpt2", "binoculars", "fast_detectgpt", "roberta"}:
