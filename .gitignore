@@ -9,3 +9,4 @@ dist/
 start.sh
 .DS_Store
 *.log
+scratch_*.json
