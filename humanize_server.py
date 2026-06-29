@@ -457,6 +457,7 @@ HTML = r"""<!DOCTYPE html>
       <option value="gpt2" selected>GPT-2 (fast)</option>
       <option value="binoculars">Binoculars Qwen 1.7B</option>
       <option value="fast_detectgpt">Fast-DetectGPT Qwen 1.7B</option>
+      <option value="roberta">RoBERTa classifier</option>
     </select>
     <button id="pass-toggle" class="active" title="Toggle 1-pass / 2-pass">2-pass</button>
     <button id="nuclear-toggle" title="Include nuclear rewrite in loop (extracts facts, rewrites from scratch)">nuclear</button>
@@ -695,6 +696,9 @@ async function runScan(text, badgeEl, includeLocal = true) {
         } else if (local.backend === 'fast_detectgpt' && typeof local.fast_detectgpt === 'number') {
           metric = `d${local.fast_detectgpt.toFixed(2)}`;
           title = 'Fast-DetectGPT discrepancy / burstiness — higher = more AI';
+        } else if (local.backend === 'roberta' && typeof local.roberta === 'number') {
+          metric = `r${Math.round(local.roberta * 100)}%`;
+          title = 'RoBERTa classifier P(AI) / burstiness — higher = more AI';
         }
         localBadge = ` <span class="score-badge local" title="${title}">${metric} b${burst} h${hs}%</span>`;
       }
@@ -1277,15 +1281,15 @@ def detect():
 
 @app.route("/local-score", methods=["POST"])
 def local_score():
-    """Local detector. backend='gpt2' | 'binoculars' | 'fast_detectgpt'."""
+    """Local detector. backend='gpt2' | 'binoculars' | 'fast_detectgpt' | 'roberta'."""
     from scorer import score as score_text
     data = request.get_json() or {}
     text = data.get("text", "").strip()
     backend = data.get("backend", "gpt2")
     if not text:
         return {"error": "no text"}, 400
-    if backend not in {"gpt2", "binoculars", "fast_detectgpt"}:
-        return {"error": "backend must be gpt2, binoculars, or fast_detectgpt"}, 400
+    if backend not in {"gpt2", "binoculars", "fast_detectgpt", "roberta"}:
+        return {"error": "backend must be gpt2, binoculars, fast_detectgpt, or roberta"}, 400
     try:
         result = score_text(text, backend=backend)  # with_sentences=False by default
         return {
@@ -1293,6 +1297,7 @@ def local_score():
             "perplexity": result.get("perplexity"),
             "binoculars": result.get("binoculars"),
             "fast_detectgpt": result.get("fast_detectgpt"),
+            "roberta": result.get("roberta"),
             "burstiness": result["burstiness"],
             "human_score": result["human_score"],
         }

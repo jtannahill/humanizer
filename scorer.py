@@ -98,6 +98,8 @@ def score(text: str, top_k_worst: int = 5, backend: str = "gpt2", with_sentences
                  "binoculars" — two-model Qwen3-1.7B pair, stronger signal
                  "fast_detectgpt" — single-model Qwen3-1.7B, often beats
                  Binoculars on out-of-distribution text
+                 "roberta" — supervised RoBERTa classifier, calibrated P(AI),
+                 a complementary signal to the zero-shot backends above
         with_sentences: if False (default), skip per-sentence inference.
                  Per-sentence scoring runs the model once per sentence and
                  dominates wall-clock time on the Qwen backends. The
@@ -112,6 +114,9 @@ def score(text: str, top_k_worst: int = 5, backend: str = "gpt2", with_sentences
     if backend == "fast_detectgpt":
         from fast_detectgpt_scorer import score as fdg_score
         return fdg_score(text, top_k_worst=top_k_worst, with_sentences=with_sentences)
+    if backend == "roberta":
+        from roberta_scorer import score as roberta_score
+        return roberta_score(text, top_k_worst=top_k_worst, with_sentences=with_sentences)
 
     overall = perplexity(text)
     burst = burstiness(text)

@@ -17,7 +17,7 @@ Strips LLM fingerprints from text. Rewrites AI-generated prose to read as authen
 - Nuclear rewrite is on by default and runs first in the loop; output capped at +20% of original word count
 - Combined-oracle loop: tracks best output by `0.7 × GPTZero + 0.3 × (1 − local_human_score)`; final badge still reports the GPTZero number
 - Subtle error injection to break statistical AI signatures
-- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), or Fast-DetectGPT (Qwen3-1.7B)
+- Pluggable local detector (oracle): GPT-2 perplexity, Binoculars (Qwen3-1.7B), Fast-DetectGPT (Qwen3-1.7B), or a supervised RoBERTa classifier
 - Pluggable rewriter: a header toggle routes all rewrite passes to a local Ollama model on Apple Silicon instead of Claude (scoring stays on GPTZero)
 - Prompt caching on the main system prompt (1h TTL) to keep API cost down on repeat runs
 - Explicit `temperature=1.0` on all Claude calls (Anthropic's max) for documented sampling behavior
@@ -107,18 +107,19 @@ python3 humanize.py input.txt output.txt
 
 - Python 3.10+, Flask, `anthropic` SDK
 - All prompt logic in `prompt.py`: edit there to update all passes
-- Local detectors in `scorer.py` (dispatcher), `binoculars_scorer.py`, `fast_detectgpt_scorer.py`
+- Local detectors in `scorer.py` (dispatcher), `binoculars_scorer.py`, `fast_detectgpt_scorer.py`, `roberta_scorer.py`
 - GPT-2 and Binoculars run on PyTorch+MPS; Fast-DetectGPT runs on MLX (Apple Silicon native, bf16). Weights download to the HuggingFace cache on first use: separate cache slots for the PyTorch (`Qwen/Qwen3-1.7B-Base`, `Qwen/Qwen3-1.7B`) and MLX (`mlx-community/Qwen3-1.7B-bf16`) variants.
 
 ## Detector backends
 
-Switch via the dropdown in the header. The selected backend feeds the loop oracle alongside GPTZero (70% GPTZero / 30% local). Thresholds in `binoculars_scorer.py` and `fast_detectgpt_scorer.py` are rough starting points: calibrate on a real corpus before trusting the numeric `human_score`.
+Switch via the dropdown in the header. The selected backend feeds the loop oracle alongside GPTZero (70% GPTZero / 30% local). Thresholds in `binoculars_scorer.py` and `fast_detectgpt_scorer.py` are rough starting points: calibrate on a real corpus before trusting the numeric `human_score`. The `roberta` backend is the exception — it's a trained classifier, so its `human_score` comes straight from a calibrated P(AI) with no hand-tuned threshold; the human/AI class orientation is auto-detected from the model's `id2label`.
 
 | Backend | Runtime | Model | Memory | Warm latency | Notes |
 |---|---|---|---|---|---|
 | `gpt2` | PyTorch+MPS | GPT-2 large | ~2GB | ~150ms | Default; fastest cold-start; weakest signal |
 | `binoculars` | PyTorch+MPS | Qwen3-1.7B-Base + Qwen3-1.7B (pair) | ~7GB | ~300ms | Stronger signal; closer to paper-quality |
 | `fast_detectgpt` | MLX (bf16) | Qwen3-1.7B | ~3.4GB | ~80–140ms | Single model, often beats Binoculars on out-of-distribution text |
+| `roberta` | PyTorch+MPS | RoBERTa classifier (`Hello-SimpleAI/chatgpt-detector-roberta`) | ~0.5GB | ~40ms | Supervised; emits calibrated P(AI), no threshold to tune; complementary failure mode to the zero-shot backends. Long inputs windowed at 510 tokens, P(AI) length-weighted across windows |
 
 > **Pick one backend per session.** Each backend lazy-loads its weights on first use and stays resident. Switching mid-session leaves all selected backends in unified memory; on a 16GB Mac, GPT-2 + Binoculars + Fast-DetectGPT together (~12GB) will trigger heavy swap. Restart the server to flush.
 
